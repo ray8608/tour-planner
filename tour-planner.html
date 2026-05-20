@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="dark" data-layout="A">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅遊規劃工具</title>
+  <style>
+    /* ===== CSS Variables ===== */
+    :root {
+      --bg:           #0f172a;
+      --surface:      #1e293b;
+      --header-bg:    #1e293b;
+      --text:         #f1f5f9;
+      --text-muted:   #94a3b8;
+      --accent:       #7dd3fc;
+      --accent-bg:    #1e3a5f;
+      --accent-bd:    #3b82f6;
+      --border:       #334155;
+      --border-dash:  #334155;
+      --time-color:   #fbbf24;
+      --shadow:       none;
+      --input-bg:     #0f172a;
+      --color-success: #34d399;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg:           #f8fafc;
+      --surface:      #ffffff;
+      --header-bg:    #3b82f6;
+      --text:         #1e293b;
+      --text-muted:   #64748b;
+      --accent:       #2563eb;
+      --accent-bg:    #dbeafe;
+      --accent-bd:    #93c5fd;
+      --border:       #e2e8f0;
+      --border-dash:  #cbd5e1;
+      --time-color:   #f59e0b;
+      --shadow:       0 1px 3px rgba(0,0,0,0.08);
+      --input-bg:     #f8fafc;
+      --color-success: #16a34a;
+      color-scheme: light;
+    }
+
+    /* ===== Reset ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+    button { cursor: pointer; font-family: inherit; font-size: inherit; }
+    input, select { font-family: inherit; font-size: inherit; }
+    a { text-decoration: none; }
+
+    /* ===== Layout ===== */
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ===== Header ===== */
+    .app-header {
+      background: var(--header-bg);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; gap: 6px; align-items: center; }
+    .trip-name {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      outline: none;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.2s;
+      min-width: 120px;
+    }
+    .trip-name:hover, .trip-name:focus { border-bottom-color: var(--border); }
+
+    /* ===== Buttons ===== */
+    .btn {
+      background: var(--input-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+    .btn:hover { opacity: 0.8; }
+    .btn-icon {
+      background: var(--input-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-size: 14px;
+    }
+    .btn-accent {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent-bd);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .btn-accent[disabled] { opacity: 0.4; pointer-events: none; }
+    .btn-accent:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 2px 4px;
+      font-size: 13px;
+      opacity: 0.5;
+    }
+    .btn-ghost:hover { opacity: 1; color: #f87171; }
+    .btn-add {
+      width: 100%;
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--accent);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .btn-add:hover { opacity: 0.8; }
+
+    /* ===== Settings Overlay ===== */
+    .settings-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+    }
+    .settings-overlay.open { display: block; }
+    .settings-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .settings-panel {
+      position: absolute;
+      top: 50px; right: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      width: 260px;
+      z-index: 1;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .settings-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--text-muted); }
+    .settings-group { margin-bottom: 14px; }
+    .settings-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .toggle-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    .toggle-btn {
+      background: var(--input-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .toggle-btn.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border-color: var(--accent-bd);
+    }
+
+    /* ===== Day Tabs (Layout A) ===== */
+    .day-tabs {
+      background: var(--input-bg);
+      padding: 8px 16px 0;
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .day-tab {
+      padding: 6px 14px;
+      border-radius: 5px 5px 0 0;
+      font-size: 12px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      cursor: pointer;
+      white-space: nowrap;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .day-tab.active {
+      background: var(--surface);
+      color: var(--accent);
+      border-color: var(--border);
+      border-bottom-color: var(--surface);
+      margin-bottom: -1px;
+    }
+    .day-tab-add {
+      padding: 6px 12px;
+      color: var(--accent);
+      font-size: 16px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* ===== Layout B: Sidebar ===== */
+    .layout-b-wrap { display: flex; flex: 1; }
+    .day-sidebar {
+      width: 110px;
+      min-width: 110px;
+      background: var(--input-bg);
+      border-right: 1px solid var(--border);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sidebar-day-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      text-align: left;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-day-btn.active { background: var(--accent-bg); color: var(--accent); }
+    .sidebar-day-add {
+      color: var(--accent);
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    /* ===== Day Content ===== */
+    .day-content { flex: 1; padding: 14px 16px; max-width: 760px; }
+    .day-content-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .day-name-input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      outline: none;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.2s;
+    }
+    .day-name-input:hover, .day-name-input:focus { border-bottom-color: var(--border); }
+
+    /* ===== Layout C: Scroll ===== */
+    .layout-c-wrap { padding: 16px; max-width: 760px; margin: 0 auto; }
+    .day-section { margin-bottom: 28px; }
+    .day-section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ===== Timeline Layout ===== */
+    .timeline-row {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+      margin-bottom: 4px;
+    }
+    .timeline-left {
+      width: 96px;
+      min-width: 96px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      flex-shrink: 0;
+    }
+    .timeline-right { flex: 1; min-width: 0; }
+    .time-badge {
+      font-size: 10px;
+      color: var(--time-color);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      line-height: 1.3;
+    }
+
+    /* ===== Hotel Marker ===== */
+    .hotel-marker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      box-shadow: var(--shadow);
+    }
+    .hotel-name-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+    .hotel-name-input:hover, .hotel-name-input:focus { border-bottom-color: var(--border); }
+    .start-time-input {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--time-color);
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 11px;
+      width: 84px;
+    }
+    .start-time-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
+    /* ===== Spot Card ===== */
+    .spot-card {
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      box-shadow: var(--shadow);
+    }
+    .spot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+    .spot-card.dragging { opacity: 0.35; }
+    .spot-row { display: flex; align-items: center; gap: 6px; }
+    .drag-handle { color: var(--text-muted); font-size: 14px; cursor: grab; padding: 0 2px; user-select: none; }
+    .spot-name {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      min-width: 0;
+    }
+    .spot-notes {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      width: 100%;
+      outline: none;
+      padding-left: 22px;
+      margin-top: 4px;
+    }
+
+    /* ===== Duration Selects ===== */
+    .duration-group { display: flex; gap: 2px; align-items: center; }
+    .duration-select {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 3px;
+      padding: 2px 2px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .duration-select.has-value {
+      color: var(--time-color);
+      border-color: var(--color-success);
+    }
+
+    /* ===== Drop Zone ===== */
+    .day-drop-zone { min-height: 8px; border-radius: 6px; transition: background 0.15s, border 0.15s; }
+    .day-drop-zone.drag-over-zone {
+      outline: 2px dashed var(--accent);
+      background: var(--accent-bg);
+      min-height: 40px;
+    }
+
+    /* ===== Route Connector ===== */
+    .route-connector {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+    }
+    .route-line { flex: 1; border-top: 1px dashed var(--border-dash); min-width: 6px; }
+    .route-transport {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+    /* ===== Font size bump (16px base) ===== */
+    body { font-size: 16px; }
+    .trip-name { font-size: 17px; }
+    .spot-name { font-size: 15px; }
+    .day-name-input { font-size: 14px; }
+    .settings-title { font-size: 14px; }
+    .hotel-marker { font-size: 13px; }
+    .hotel-name-input { font-size: 13px; }
+    .btn, .btn-add, .day-tab, .sidebar-day-btn, .sidebar-day-add { font-size: 13px; }
+    .toggle-btn, .btn-accent, .route-transport { font-size: 12px; }
+    .start-time-input, .spot-notes { font-size: 12px; }
+    .duration-select { font-size: 11px; }
+    .settings-label { font-size: 11px; }
+    .time-badge { font-size: 11px; }
+
+    /* ===== Mobile (≤600px) ===== */
+    @media (max-width: 600px) {
+      .app-header { padding: 8px 10px; }
+      .settings-panel { right: 8px; left: 8px; width: auto; }
+      .day-sidebar { width: 90px; min-width: 90px; }
+      .day-content { padding: 10px 10px; }
+      .layout-c-wrap { padding: 10px; }
+      .timeline-left { width: 72px; min-width: 72px; padding-right: 6px; }
+      /* duration selects wrap to second line in spot card */
+      .spot-row { flex-wrap: wrap; row-gap: 4px; }
+      .spot-row .duration-group { order: 5; flex-basis: 100%; padding-left: 24px; }
+    }
+
+    /* ===== Mobile (≤480px) ===== */
+    @media (max-width: 480px) {
+      .timeline-left { width: 64px; min-width: 64px; }
+      .time-badge { font-size: 10px; }
+      /* route connector wraps instead of overflowing */
+      .route-line { display: none; }
+      .route-connector { flex-wrap: wrap; justify-content: flex-start; padding: 2px 4px; gap: 4px; }
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // ===== Utilities =====
+    function genId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function escHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function minsToDisplay(mins) {
+      if (!mins || mins <= 0) return '';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      if (h > 0 && m > 0) return `${h}小時${m}分`;
+      if (h > 0) return `${h}小時`;
+      return `${m}分`;
+    }
+
+    function addMinsToHHMM(hhmm, mins) {
+      const parts = hhmm.split(':');
+      const total = parseInt(parts[0]) * 60 + parseInt(parts[1]) + (mins | 0);
+      const h = Math.floor(total / 60) % 24;
+      const m = total % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    function hotelStartId(dayId) { return 'hs_' + dayId; }
+    function hotelEndId(dayId)   { return 'he_' + dayId; }
+
+    // ===== Google Maps URLs =====
+    function mapsNavUrl(name) {
+      const q = name.trim() || '景點';
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    }
+
+    function mapsDirectionsUrl(from, to, mode) {
+      const o = from.trim() || '出發地';
+      const d = to.trim() || '目的地';
+      return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o)}&destination=${encodeURIComponent(d)}&travelmode=${mode}`;
+    }
+
+    // ===== Route key helpers =====
+    function routeKey(fromId, toId) { return `${fromId}→${toId}`; }
+
+    function getRoute(fromId, toId) {
+      return state.routes[routeKey(fromId, toId)] || {};
+    }
+
+    function clearRoutesForSpot(s, spotId) {
+      Object.keys(s.routes).forEach(k => {
+        if (k.startsWith(spotId + '→') || k.endsWith('→' + spotId)) delete s.routes[k];
+      });
+    }
+
+    // ===== Timeline computation =====
+    function computeTimeline(day) {
+      const slots = {};
+      if (!day.startTime) return slots;
+
+      let cursor = day.startTime;
+      slots[hotelStartId(day.id)] = { start: cursor, end: cursor };
+
+      for (let i = 0; i < day.spots.length; i++) {
+        const spot = day.spots[i];
+        const prevId = i === 0 ? hotelStartId(day.id) : day.spots[i - 1].id;
+        const rk = routeKey(prevId, spot.id);
+        const routeMins = (state.routes[rk] || {}).recordedTime || 0;
+        const routeEnd = (cursor && routeMins > 0) ? addMinsToHHMM(cursor, routeMins) : null;
+        slots[rk] = { start: cursor, end: routeEnd };
+        cursor = routeEnd;
+
+        const stayMins = spot.stayDuration || 0;
+        const spotEnd = (cursor && stayMins > 0) ? addMinsToHHMM(cursor, stayMins) : null;
+        slots[spot.id] = { start: cursor, end: spotEnd };
+        cursor = spotEnd;
+      }
+
+      if (day.spots.length > 0) {
+        const lastId = day.spots[day.spots.length - 1].id;
+        const rk = routeKey(lastId, hotelEndId(day.id));
+        const returnMins = (state.routes[rk] || {}).recordedTime || 0;
+        const returnEnd = (cursor && returnMins > 0) ? addMinsToHHMM(cursor, returnMins) : null;
+        slots[rk] = { start: cursor, end: returnEnd };
+        slots[hotelEndId(day.id)] = { start: returnEnd, end: returnEnd };
+      }
+
+      return slots;
+    }
+
+    function formatTimeBadge(slot) {
+      if (!slot || !slot.start) return '';
+      if (!slot.end || slot.start === slot.end) return slot.start;
+      return `${slot.start}~${slot.end}`;
+    }
+
+    // ===== Duration select HTML =====
+    function renderDurationSelects(totalMins, hAction, mAction, dataAttrs) {
+      const h = Math.floor((totalMins || 0) / 60);
+      const m = (totalMins || 0) % 60;
+      const hasVal = (totalMins || 0) > 0;
+      const cls = `duration-select${hasVal ? ' has-value' : ''}`;
+      const hourOpts = Array.from({length: 13}, (_, i) =>
+        `<option value="${i}"${i === h ? ' selected' : ''}>${i}小時</option>`).join('');
+      const minOpts = [0,5,10,15,20,25,30,35,40,45,50,55].map(v =>
+        `<option value="${v}"${v === m ? ' selected' : ''}>${v}分</option>`).join('');
+      return `<span class="duration-group" ${dataAttrs}>` +
+        `<select class="${cls}" data-action="${hAction}">${hourOpts}</select>` +
+        `<select class="${cls}" data-action="${mAction}">${minOpts}</select>` +
+        `</span>`;
+    }
+
+    // ===== Spot Move =====
+    function moveSpotBefore(spotId, fromDayId, beforeSpotId, toDayId) {
+      if (spotId === beforeSpotId) return;
+      setState(s => {
+        const fromDay = s.days.find(d => d.id === fromDayId);
+        const toDay   = s.days.find(d => d.id === toDayId);
+        if (!fromDay || !toDay) return;
+        const idx = fromDay.spots.findIndex(sp => sp.id === spotId);
+        if (idx === -1) return;
+        const [spot] = fromDay.spots.splice(idx, 1);
+        clearRoutesForSpot(s, spotId);
+        const targetIdx = toDay.spots.findIndex(sp => sp.id === beforeSpotId);
+        toDay.spots.splice(targetIdx === -1 ? toDay.spots.length : targetIdx, 0, spot);
+      });
+    }
+
+    function moveSpotToDay(spotId, fromDayId, toDayId) {
+      if (fromDayId === toDayId) return;
+      setState(s => {
+        const fromDay = s.days.find(d => d.id === fromDayId);
+        const toDay   = s.days.find(d => d.id === toDayId);
+        if (!fromDay || !toDay) return;
+        const idx = fromDay.spots.findIndex(sp => sp.id === spotId);
+        if (idx === -1) return;
+        const [spot] = fromDay.spots.splice(idx, 1);
+        clearRoutesForSpot(s, spotId);
+        toDay.spots.push(spot);
+      });
+    }
+
+    function exportJSON() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${state.tripName}-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+
+    function importJSON(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!Array.isArray(data.days) || !data.settings) throw new Error();
+          if (!confirm('匯入將覆蓋目前行程，確定嗎？')) return;
+          state = migrateState(data);
+          if (!state.days?.find(d => d.id === state.activeDayId)) {
+            state.activeDayId = state.days?.[0]?.id ?? null;
+          }
+          save(state);
+          render();
+        } catch (_) { alert('JSON 格式錯誤，無法匯入'); }
+      };
+      reader.readAsText(file);
+    }
+
+    // ===== Default state =====
+    function makeDay(n) {
+      return { id: genId(), label: `第${n}天`, startTime: '', startHotelName: '', endHotelName: '', spots: [] };
+    }
+
+    function defaultState() {
+      const d = makeDay(1);
+      return {
+        tripName: '新旅程',
+        activeDayId: d.id,
+        settings: { layout: 'A', theme: 'dark', defaultTransport: 'driving' },
+        days: [d],
+        routes: {}
+      };
+    }
+
+    function migrateState(s) {
+      if (!s.routes) s.routes = {};
+      s.days.forEach(day => {
+        if (!day.startTime) day.startTime = '';
+        if (!day.startHotelName) day.startHotelName = day.hotelName || '';
+        if (!day.endHotelName)   day.endHotelName   = day.hotelName || '';
+        delete day.hotelName;
+        day.spots.forEach(spot => {
+          if (typeof spot.stayDuration !== 'number') spot.stayDuration = 0;
+        });
+      });
+      Object.keys(s.routes).forEach(k => {
+        const r = s.routes[k];
+        if (typeof r.recordedTime !== 'number') r.recordedTime = 0;
+      });
+      return s;
+    }
+
+    // ===== Persistence =====
+    const STORAGE_KEY = 'travel-planner-v1';
+
+    function save(s) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return migrateState(JSON.parse(raw));
+      } catch (_) {}
+      return null;
+    }
+
+    // ===== App state =====
+    let state = load() || defaultState();
+    let settingsOpen = false;
+
+    function setState(updater) {
+      updater(state);
+      if (!state.days.find(d => d.id === state.activeDayId)) {
+        state.activeDayId = state.days[0]?.id ?? null;
+      }
+      save(state);
+      render();
+    }
+
+    function applySettings(s) {
+      document.documentElement.dataset.theme  = s.theme;
+      document.documentElement.dataset.layout = s.layout;
+      document.title = `${state.tripName} — 旅遊規劃`;
+    }
+
+    // ===== Hotel Markers =====
+    function renderHotelStartMarker(day) {
+      return `
+        <div class="timeline-row">
+          <div class="timeline-left"></div>
+          <div class="timeline-right">
+            <div class="hotel-marker">
+              <span>🏨</span>
+              <input class="hotel-name-input" value="${escHtml(day.startHotelName)}"
+                placeholder="出發飯店（選填）"
+                data-action="hotel-start-name" data-day-id="${day.id}">
+              <span style="font-size:11px">出發</span>
+              <input type="time" class="start-time-input" value="${escHtml(day.startTime)}"
+                data-action="day-start-time" data-day-id="${day.id}" title="設定出發時間">
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderHotelEndMarker(day, slots) {
+      const slot = slots[hotelEndId(day.id)];
+      const timeStr = slot?.start || '';
+      return `
+        <div class="timeline-row">
+          <div class="timeline-left">
+            ${timeStr ? `<span class="time-badge">${escHtml(timeStr)}</span>` : ''}
+          </div>
+          <div class="timeline-right">
+            <div class="hotel-marker">
+              <span>🏨</span>
+              <input class="hotel-name-input" value="${escHtml(day.endHotelName)}"
+                placeholder="返回飯店（選填）"
+                data-action="hotel-end-name" data-day-id="${day.id}">
+              <span style="font-size:11px">返回</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ===== Spot Card =====
+    function renderSpotCard(spot, dayId, slot) {
+      const hasName  = spot.name.trim() !== '';
+      const navUrl   = hasName ? mapsNavUrl(spot.name) : '#';
+      const navAttrs = hasName
+        ? `href="${escHtml(navUrl)}" target="_blank" rel="noopener"`
+        : `href="#" onclick="return false" title="請先輸入景點名稱"`;
+      const badge   = formatTimeBadge(slot);
+      const dAttrs  = `data-spot-id="${spot.id}" data-day-id="${dayId}"`;
+      const stayHtml = renderDurationSelects(spot.stayDuration, 'spot-dur-h', 'spot-dur-m', dAttrs);
+
+      return `
+        <div class="timeline-row">
+          <div class="timeline-left">
+            ${badge ? `<span class="time-badge">${escHtml(badge)}</span>` : ''}
+          </div>
+          <div class="timeline-right">
+            <div class="spot-card" data-spot-id="${spot.id}" data-day-id="${dayId}" draggable="true">
+              <div class="spot-row">
+                <span class="drag-handle" title="拖拉排序">⠿</span>
+                <input class="spot-name" value="${escHtml(spot.name)}" placeholder="景點名稱"
+                  data-action="spot-name" data-spot-id="${spot.id}" data-day-id="${dayId}">
+                ${stayHtml}
+                <a class="btn-accent" ${navAttrs}>🗺 導航</a>
+                <button class="btn-ghost" data-action="delete-spot"
+                  data-spot-id="${spot.id}" data-day-id="${dayId}" title="刪除景點">✕</button>
+              </div>
+              <input class="spot-notes" value="${escHtml(spot.notes)}" placeholder="備註（選填）"
+                data-action="spot-notes" data-spot-id="${spot.id}" data-day-id="${dayId}">
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ===== Route Connector =====
+    function renderRouteConnector(fromSpot, toSpot, slots) {
+      const rk        = routeKey(fromSpot.id, toSpot.id);
+      const route     = state.routes[rk] || {};
+      const transport = route.transport || state.settings.defaultTransport;
+      const travelMins = route.recordedTime || 0;
+      const slot      = slots ? slots[rk] : null;
+      const badge     = formatTimeBadge(slot);
+      const mapsUrl   = mapsDirectionsUrl(
+        fromSpot.name || '出發地',
+        toSpot.name   || '目的地',
+        transport
+      );
+      const dAttrs  = `data-from="${fromSpot.id}" data-to="${toSpot.id}"`;
+      const timeHtml = renderDurationSelects(travelMins, 'route-time-h', 'route-time-m', dAttrs);
+
+      return `
+        <div class="timeline-row">
+          <div class="timeline-left">
+            ${badge ? `<span class="time-badge">${escHtml(badge)}</span>` : ''}
+          </div>
+          <div class="timeline-right">
+            <div class="route-connector">
+              <div class="route-line"></div>
+              <select class="route-transport" data-action="route-transport"
+                data-from="${fromSpot.id}" data-to="${toSpot.id}">
+                <option value="driving" ${transport==='driving'?'selected':''}>🚗 開車</option>
+                <option value="transit" ${transport==='transit'?'selected':''}>🚌 大眾</option>
+                <option value="walking" ${transport==='walking'?'selected':''}>🚶 步行</option>
+              </select>
+              <a class="btn-accent" href="${escHtml(mapsUrl)}" target="_blank" rel="noopener">查看路線 ↗</a>
+              ${timeHtml}
+              <div class="route-line"></div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ===== Day spots area =====
+    function renderDaySpots(day) {
+      const slots         = computeTimeline(day);
+      const startHotelName = day.startHotelName || '飯店';
+      const endHotelName   = day.endHotelName   || '飯店';
+
+      let html = renderHotelStartMarker(day);
+      html += `<div class="day-drop-zone" data-drop-zone data-day-id="${day.id}">`;
+
+      if (day.spots.length > 0) {
+        html += renderRouteConnector(
+          { id: hotelStartId(day.id), name: startHotelName },
+          day.spots[0], slots);
+
+        day.spots.forEach((spot, i) => {
+          html += renderSpotCard(spot, day.id, slots[spot.id]);
+          if (i < day.spots.length - 1) {
+            html += renderRouteConnector(spot, day.spots[i + 1], slots);
+          }
+        });
+
+        html += renderRouteConnector(
+          day.spots[day.spots.length - 1],
+          { id: hotelEndId(day.id), name: endHotelName }, slots);
+      }
+
+      html += `</div>`;
+      html += renderHotelEndMarker(day, slots);
+      html += `<button class="btn-add" data-action="add-spot" data-day-id="${day.id}">＋ 新增景點</button>`;
+      return html;
+    }
+
+    function renderDeleteDayBtn(day) {
+      return state.days.length > 1
+        ? `<button class="btn-ghost" data-action="delete-day" data-day-id="${day.id}" title="刪除此天">🗑</button>`
+        : '';
+    }
+
+    function renderDayHeader(day) {
+      return `
+        <div class="day-content-header">
+          <input class="day-name-input" value="${escHtml(day.label)}"
+            data-action="day-name" data-day-id="${day.id}">
+          ${renderDeleteDayBtn(day)}
+        </div>`;
+    }
+
+    // ===== Settings Panel =====
+    function renderSettingsPanel() {
+      function tb(key, val, label) {
+        const active = state.settings[key] === val;
+        return `<button class="toggle-btn ${active ? 'active' : ''}"
+          data-action="setting" data-key="${key}" data-val="${val}">${label}</button>`;
+      }
+      return `
+        <div class="settings-overlay ${settingsOpen ? 'open' : ''}" id="settings-overlay">
+          <div class="settings-backdrop" data-action="close-settings"></div>
+          <div class="settings-panel">
+            <div class="settings-title">⚙️ 設定</div>
+            <div class="settings-group">
+              <div class="settings-label">版面配置</div>
+              <div class="toggle-group">
+                ${tb('layout','A','A 頁籤')}
+                ${tb('layout','B','B 側欄')}
+                ${tb('layout','C','C 捲動')}
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-label">顏色主題</div>
+              <div class="toggle-group">
+                ${tb('theme','dark','🌙 Dark')}
+                ${tb('theme','light','☀️ Light')}
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-label">預設交通方式</div>
+              <div class="toggle-group">
+                ${tb('defaultTransport','driving','🚗 開車')}
+                ${tb('defaultTransport','transit','🚌 大眾')}
+                ${tb('defaultTransport','walking','🚶 步行')}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderHeader() {
+      return `
+        <header class="app-header">
+          <div class="header-left">
+            <span>✈️</span>
+            <input class="trip-name" value="${escHtml(state.tripName)}"
+              data-action="trip-name" placeholder="旅程名稱">
+          </div>
+          <div class="header-right">
+            <button class="btn" data-action="export-json">📤 匯出</button>
+            <label class="btn" style="cursor:pointer">📥 匯入
+              <input type="file" accept=".json" data-action="import-json" style="display:none">
+            </label>
+            <button class="btn-icon" data-action="toggle-settings" title="設定">⚙️</button>
+          </div>
+        </header>`;
+    }
+
+    // ===== Layout A: Tabs =====
+    function renderLayoutA() {
+      const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
+      const tabs = state.days.map(d => `
+        <button class="day-tab ${d.id === active?.id ? 'active' : ''}"
+          data-action="select-day" data-day-id="${d.id}">${escHtml(d.label)}</button>
+      `).join('');
+      return `
+        <div class="day-tabs">
+          ${tabs}
+          <button class="day-tab-add" data-action="add-day" title="新增天數">＋</button>
+        </div>
+        <div class="day-content">
+          ${active ? renderDayHeader(active) + renderDaySpots(active) : ''}
+        </div>`;
+    }
+
+    // ===== Layout B: Sidebar =====
+    function renderLayoutB() {
+      const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
+      const items  = state.days.map(d => `
+        <button class="sidebar-day-btn ${d.id === active?.id ? 'active' : ''}"
+          data-action="select-day" data-day-id="${d.id}">${escHtml(d.label)}</button>
+      `).join('');
+      return `
+        <div class="layout-b-wrap">
+          <div class="day-sidebar">
+            ${items}
+            <button class="sidebar-day-add" data-action="add-day">＋ 新增天</button>
+          </div>
+          <div class="day-content">
+            ${active ? renderDayHeader(active) + renderDaySpots(active) : ''}
+          </div>
+        </div>`;
+    }
+
+    // ===== Layout C: Vertical Scroll =====
+    function renderLayoutC() {
+      const sections = state.days.map(day => `
+        <div class="day-section">
+          <div class="day-section-header">
+            <span style="color:var(--accent)">📅</span>
+            <input class="day-name-input" value="${escHtml(day.label)}"
+              data-action="day-name" data-day-id="${day.id}">
+            ${renderDeleteDayBtn(day)}
+          </div>
+          ${renderDaySpots(day)}
+        </div>
+      `).join('');
+      return `
+        <div class="layout-c-wrap">
+          ${sections}
+          <button class="btn-add" style="max-width:260px" data-action="add-day">＋ 新增天數</button>
+        </div>`;
+    }
+
+    // ===== Render =====
+    function render() {
+      applySettings(state.settings);
+      const { layout } = state.settings;
+      const mainContent = layout === 'B' ? renderLayoutB()
+        : layout === 'C' ? renderLayoutC()
+        : renderLayoutA();
+      document.getElementById('app').innerHTML = `
+        ${renderHeader()}
+        ${renderSettingsPanel()}
+        <main id="main-area" style="flex:1;display:flex;flex-direction:column">
+          ${mainContent}
+        </main>`;
+    }
+
+    function init() {
+      render();
+      attachEvents();
+    }
+
+    function attachEvents() {
+      const app = document.getElementById('app');
+
+      // --- Click ---
+      app.addEventListener('click', e => {
+        const el     = e.target.closest('[data-action]');
+        const action = el?.dataset.action;
+        if (!action) return;
+
+        if (action === 'toggle-settings') { settingsOpen = !settingsOpen; render(); return; }
+        if (action === 'close-settings')  { settingsOpen = false; render(); return; }
+        if (action === 'export-json')     { exportJSON(); return; }
+
+        if (action === 'setting') {
+          const SETTING_KEYS = ['layout', 'theme', 'defaultTransport'];
+          if (!SETTING_KEYS.includes(el.dataset.key)) return;
+          setState(s => { s.settings[el.dataset.key] = el.dataset.val; });
+          return;
+        }
+
+        if (action === 'add-day') {
+          setState(s => {
+            const d = makeDay(s.days.length + 1);
+            s.days.push(d);
+            s.activeDayId = d.id;
+          });
+          return;
+        }
+
+        if (action === 'select-day') {
+          const container = el.closest('[data-day-id]');
+          if (!container) return;
+          setState(s => { s.activeDayId = container.dataset.dayId; });
+          return;
+        }
+
+        if (action === 'delete-day') {
+          const dayId = el.dataset.dayId;
+          if (!confirm('確定刪除這一天？')) return;
+          setState(s => { s.days = s.days.filter(d => d.id !== dayId); });
+          return;
+        }
+
+        if (action === 'add-spot') {
+          const dayId = el.dataset.dayId;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '' });
+          });
+          return;
+        }
+
+        if (action === 'delete-spot') {
+          const { spotId, dayId } = el.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (!day) return;
+            clearRoutesForSpot(s, spotId);
+            day.spots = day.spots.filter(sp => sp.id !== spotId);
+          });
+          return;
+        }
+      });
+
+      // --- Change ---
+      app.addEventListener('change', e => {
+        const action = e.target.dataset.action;
+
+        if (action === 'import-json' && e.target.files[0]) {
+          importJSON(e.target.files[0]);
+          return;
+        }
+
+        if (action === 'route-transport') {
+          const { from, to } = e.target.dataset;
+          setState(s => {
+            const k = routeKey(from, to);
+            if (!s.routes[k]) s.routes[k] = {};
+            s.routes[k].transport = e.target.value;
+          });
+          return;
+        }
+
+        if (action === 'spot-dur-h' || action === 'spot-dur-m') {
+          const group = e.target.closest('[data-spot-id]');
+          if (!group) return;
+          const { spotId, dayId } = group.dataset;
+          const hSel = group.querySelector('[data-action="spot-dur-h"]');
+          const mSel = group.querySelector('[data-action="spot-dur-m"]');
+          const totalMins = parseInt(hSel.value) * 60 + parseInt(mSel.value);
+          setState(s => {
+            const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+            if (spot) spot.stayDuration = totalMins;
+          });
+          return;
+        }
+
+        if (action === 'route-time-h' || action === 'route-time-m') {
+          const group = e.target.closest('[data-from]');
+          if (!group) return;
+          const { from, to } = group.dataset;
+          const hSel = group.querySelector('[data-action="route-time-h"]');
+          const mSel = group.querySelector('[data-action="route-time-m"]');
+          const totalMins = parseInt(hSel.value) * 60 + parseInt(mSel.value);
+          setState(s => {
+            const k = routeKey(from, to);
+            if (!s.routes[k]) s.routes[k] = {};
+            s.routes[k].recordedTime = totalMins;
+          });
+          return;
+        }
+
+        if (action === 'day-start-time') {
+          const { dayId } = e.target.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.startTime = e.target.value;
+          });
+          return;
+        }
+      });
+
+      // --- Blur (capture) ---
+      app.addEventListener('blur', e => {
+        const { action } = e.target.dataset;
+        if (!action) return;
+
+        if (action === 'trip-name') {
+          setState(s => { s.tripName = e.target.value.trim() || '新旅程'; });
+          return;
+        }
+        if (action === 'day-name') {
+          const { dayId } = e.target.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.label = e.target.value.trim() || day.label;
+          });
+          return;
+        }
+        if (action === 'hotel-start-name') {
+          const { dayId } = e.target.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.startHotelName = e.target.value;
+          });
+          return;
+        }
+        if (action === 'hotel-end-name') {
+          const { dayId } = e.target.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.endHotelName = e.target.value;
+          });
+          return;
+        }
+        if (action === 'spot-name') {
+          const { spotId, dayId } = e.target.dataset;
+          setState(s => {
+            const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+            if (spot) spot.name = e.target.value;
+          });
+          return;
+        }
+        if (action === 'spot-notes') {
+          const { spotId, dayId } = e.target.dataset;
+          setState(s => {
+            const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+            if (spot) spot.notes = e.target.value;
+          });
+          return;
+        }
+      }, true);
+
+      // --- Drag and Drop ---
+      let dragState = null;
+
+      app.addEventListener('dragstart', e => {
+        const card = e.target.closest('.spot-card');
+        if (!card) return;
+        dragState = { spotId: card.dataset.spotId, fromDayId: card.dataset.dayId };
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      app.addEventListener('dragend', () => {
+        document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
+          .forEach(el => el.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
+        dragState = null;
+      });
+
+      app.addEventListener('dragover', e => {
+        if (!dragState) return;
+        const card = e.target.closest('.spot-card');
+        const zone = e.target.closest('[data-drop-zone]');
+        if (card || zone) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+          document.querySelectorAll('.drag-over-zone').forEach(el => el.classList.remove('drag-over-zone'));
+          if (card) card.classList.add('drag-over');
+          else zone.classList.add('drag-over-zone');
+        }
+      });
+
+      app.addEventListener('dragleave', e => {
+        const card = e.target.closest('.spot-card');
+        const zone = e.target.closest('[data-drop-zone]');
+        if (card) card.classList.remove('drag-over');
+        if (zone) zone.classList.remove('drag-over-zone');
+      });
+
+      app.addEventListener('drop', e => {
+        if (!dragState) return;
+        const card = e.target.closest('.spot-card');
+        const zone = e.target.closest('[data-drop-zone]');
+
+        if (card && card.dataset.spotId !== dragState.spotId) {
+          e.preventDefault();
+          moveSpotBefore(dragState.spotId, dragState.fromDayId, card.dataset.spotId, card.dataset.dayId);
+        } else if (zone && !card) {
+          e.preventDefault();
+          moveSpotToDay(dragState.spotId, dragState.fromDayId, zone.dataset.dayId);
+        }
+        dragState = null;
+      });
+
+      // --- Touch Drag (mobile) ---
+      let touchDrag  = null;
+      let touchGhost = null;
+
+      app.addEventListener('touchstart', e => {
+        const handle = e.target.closest('.drag-handle');
+        if (!handle) return;
+        const card = handle.closest('.spot-card');
+        if (!card) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect  = card.getBoundingClientRect();
+        touchDrag = {
+          spotId:    card.dataset.spotId,
+          fromDayId: card.dataset.dayId,
+          offsetX:   touch.clientX - rect.left,
+          offsetY:   touch.clientY - rect.top
+        };
+        touchGhost = card.cloneNode(true);
+        touchGhost.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.8;` +
+          `width:${rect.width}px;left:${touch.clientX - touchDrag.offsetX}px;` +
+          `top:${touch.clientY - touchDrag.offsetY}px;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
+        document.body.appendChild(touchGhost);
+        card.classList.add('dragging');
+      }, { passive: false });
+
+      app.addEventListener('touchmove', e => {
+        if (!touchDrag || !touchGhost) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        touchGhost.style.left = (touch.clientX - touchDrag.offsetX) + 'px';
+        touchGhost.style.top  = (touch.clientY - touchDrag.offsetY) + 'px';
+
+        touchGhost.style.display = 'none';
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        touchGhost.style.display = '';
+
+        document.querySelectorAll('.drag-over, .drag-over-zone')
+          .forEach(n => n.classList.remove('drag-over', 'drag-over-zone'));
+        const overCard = el?.closest('.spot-card');
+        const overZone = el?.closest('[data-drop-zone]');
+        if (overCard && overCard.dataset.spotId !== touchDrag.spotId) overCard.classList.add('drag-over');
+        else if (overZone && !overCard) overZone.classList.add('drag-over-zone');
+      }, { passive: false });
+
+      function endTouchDrag(touch) {
+        if (!touchDrag) return;
+        if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+        document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
+          .forEach(n => n.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
+
+        const el      = document.elementFromPoint(touch.clientX, touch.clientY);
+        const overCard = el?.closest('.spot-card');
+        const overZone = el?.closest('[data-drop-zone]');
+        if (overCard && overCard.dataset.spotId !== touchDrag.spotId) {
+          moveSpotBefore(touchDrag.spotId, touchDrag.fromDayId, overCard.dataset.spotId, overCard.dataset.dayId);
+        } else if (overZone && !overCard) {
+          moveSpotToDay(touchDrag.spotId, touchDrag.fromDayId, overZone.dataset.dayId);
+        }
+        touchDrag = null;
+      }
+
+      app.addEventListener('touchend',    e => endTouchDrag(e.changedTouches[0]));
+      app.addEventListener('touchcancel', () => {
+        if (touchGhost) { touchGhost.remove(); touchGhost = null; }
+        document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
+          .forEach(n => n.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
+        touchDrag = null;
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
