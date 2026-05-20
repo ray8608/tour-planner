@@ -541,9 +541,12 @@
         const lastId = day.spots[day.spots.length - 1].id;
         const rk = routeKey(lastId, hotelEndId(day.id));
         const returnMins = (state.routes[rk] || {}).recordedTime || 0;
-        const returnEnd = (cursor && returnMins > 0) ? addMinsToHHMM(cursor, returnMins) : null;
-        slots[rk] = { start: cursor, end: returnEnd };
-        slots[hotelEndId(day.id)] = { start: returnEnd, end: returnEnd };
+        // fallback: use last spot's arrival when its stay duration is not set
+        const returnBase = cursor ?? slots[lastId]?.start ?? null;
+        const returnEnd  = (returnBase && returnMins > 0) ? addMinsToHHMM(returnBase, returnMins) : null;
+        slots[rk] = { start: returnBase, end: returnEnd };
+        // show computed arrival, or departure from last spot if return route not filled
+        slots[hotelEndId(day.id)] = { start: returnEnd ?? returnBase, end: null };
       }
 
       return slots;
