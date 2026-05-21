@@ -1103,14 +1103,6 @@
           return;
         }
 
-        if (action === 'day-start-time') {
-          const { dayId } = e.target.dataset;
-          setState(s => {
-            const day = s.days.find(d => d.id === dayId);
-            if (day) day.startTime = e.target.value;
-          });
-          return;
-        }
       });
 
       // --- Blur (capture) ---
@@ -1159,6 +1151,14 @@
           setState(s => {
             const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
             if (spot) spot.notes = e.target.value;
+          });
+          return;
+        }
+        if (action === 'day-start-time') {
+          const { dayId } = e.target.dataset;
+          setState(s => {
+            const day = s.days.find(d => d.id === dayId);
+            if (day) day.startTime = e.target.value;
           });
           return;
         }
