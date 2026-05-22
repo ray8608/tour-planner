@@ -1154,6 +1154,7 @@
               data-action="trip-name" placeholder="旅程名稱">
           </div>
           <div class="header-right">
+            <button class="btn" data-action="new-trip">➕ 新行程</button>
             <button class="btn" data-action="export-json">📤 匯出</button>
             <label class="btn" style="cursor:pointer">📥 匯入
               <input type="file" accept=".json" data-action="import-json" style="display:none">
@@ -1265,6 +1266,17 @@
         }
         if (action === 'close-share-dialog') {
           setShareState({ dialog: null, deleteError: null, uploadError: null });
+          return;
+        }
+        if (action === 'new-trip') {
+          if (!confirm('確定要清除目前行程，重頭開始一個新的行程嗎？')) return;
+          const oldSettings = state.settings;
+          state = defaultState();
+          state.settings = oldSettings;
+          save(state);
+          saveImportedDocId(null);
+          setShareState({ importedDocId: null });
+          render();
           return;
         }
         if (action === 'confirm-upload') {
