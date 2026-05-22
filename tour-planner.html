@@ -558,6 +558,20 @@
       await db.collection('shared_trips').doc(docId).delete();
     }
 
+    async function updateTripInCloud(docId, password) {
+      const db = getFirestore();
+      if (!db) throw new Error('Firebase 未設定');
+      const doc = await db.collection('shared_trips').doc(docId).get();
+      if (!doc.exists) throw new Error('記錄不存在');
+      const hash = await sha256(password);
+      if (hash !== doc.data().deletePasswordHash) throw new Error('密碼錯誤');
+      await db.collection('shared_trips').doc(docId).update({
+        tripName: state.tripName,
+        uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        data: state,
+      });
+    }
+
     async function getSharedTripData(docId) {
       const db = getFirestore();
       if (!db) throw new Error('Firebase 未設定');
@@ -786,6 +800,7 @@
 
     // ===== Persistence =====
     const STORAGE_KEY = 'travel-planner-v1';
+    const IMPORTED_DOC_KEY = 'travel-planner-imported-doc-id';
 
     function save(s) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
@@ -799,6 +814,15 @@
       return null;
     }
 
+    function saveImportedDocId(docId) {
+      if (docId) localStorage.setItem(IMPORTED_DOC_KEY, docId);
+      else localStorage.removeItem(IMPORTED_DOC_KEY);
+    }
+
+    function loadImportedDocId() {
+      return localStorage.getItem(IMPORTED_DOC_KEY) || null;
+    }
+
     // ===== App state =====
     let state = load() || defaultState();
     let settingsOpen = false;
@@ -807,6 +831,7 @@
       open: false, loading: false, list: [],
       error: null, dialog: null,
       deleteTargetId: null, deleteError: null, uploadError: null,
+      importedDocId: loadImportedDocId(), updateError: null,
     };
 
     function setShareState(updates) {
@@ -1052,14 +1077,14 @@
               const date = trip.uploadedAt?.toDate
                 ? trip.uploadedAt.toDate().toLocaleDateString('zh-TW')
                 : '未知日期';
+              const isImported = shareState.importedDocId === trip.id;
               return `
-                <div class="share-trip-item">
+                <div class="share-trip-item" ${isImported ? 'style="background:var(--accent-bg);border-radius:6px;padding:10px 8px;margin-bottom:2px"' : ''}>
                   <div class="share-trip-info">
-                    <div class="share-trip-name">📋 ${escHtml(trip.tripName)}</div>
+                    <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
                     <div class="share-trip-date">${escHtml(date)} 上傳</div>
                   </div>
-                  <button class="btn-accent" data-action="import-shared-trip"
-                    data-trip-id="${escHtml(trip.id)}">匯入</button>
+                  ${isImported ? `<button class="btn-accent" data-action="open-update-dialog" data-trip-id="${escHtml(trip.id)}">↑ 更新</button>` : `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>`}
                   <button class="btn-ghost" data-action="open-delete-dialog"
                     data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
                 </div>`;
@@ -1095,8 +1120,21 @@
           </div>`;
       }
 
+      } else if (shareState.dialog === 'update') {
+        dialogHtml = `
+          <div class="share-dialog">
+            <div class="share-dialog-title">覆蓋更新行程</div>
+            <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="current-password">
+            <div class="share-error">${shareState.updateError ? escHtml(shareState.updateError) : ''}</div>
+            <div class="share-dialog-actions">
+              <button class="btn" data-action="close-share-dialog">取消</button>
+              <button class="btn-accent" data-action="confirm-update"
+                data-trip-id="${escHtml(shareState.deleteTargetId)}">確認覆蓋</button>
+            </div>
+          </div>`;
+      }
+
       return `
-        <div class="share-overlay" id="share-overlay">
           <div class="share-backdrop" data-action="close-share"></div>
           <div class="share-panel">
             <div class="share-header">
@@ -1252,9 +1290,26 @@
                 state.activeDayId = state.days?.[0]?.id ?? null;
               }
               save(state);
-              setShareState({ open: false, dialog: null });
+              saveImportedDocId(docId);
+              setShareState({ open: false, dialog: null, importedDocId: docId });
             })
             .catch(err => alert('匯入失敗：' + (err.message || '未知錯誤')));
+          return;
+        }
+        if (action === 'open-update-dialog') {
+          setShareState({ dialog: 'update', deleteTargetId: el.dataset.tripId, updateError: null });
+          return;
+        }
+        if (action === 'confirm-update') {
+          const docId = el.dataset.tripId;
+          const pw = document.getElementById('share-update-pw')?.value?.trim();
+          if (!pw) { setShareState({ updateError: '請輸入密碼' }); return; }
+          updateTripInCloud(docId, pw)
+            .then(() => {
+              setShareState({ dialog: null, updateError: null, loading: true, list: [] });
+              return loadSharedTrips();
+            })
+            .catch(err => setShareState({ updateError: err.message || '更新失敗' }));
           return;
         }
         if (action === 'open-delete-dialog') {
@@ -1267,6 +1322,10 @@
           if (!pw) { setShareState({ deleteError: '請輸入密碼' }); return; }
           deleteSharedTrip(docId, pw)
             .then(() => {
+              if (shareState.importedDocId === docId) {
+                saveImportedDocId(null);
+                shareState.importedDocId = null;
+              }
               setShareState({ dialog: null, deleteError: null, loading: true, list: [] });
               return loadSharedTrips();
             })
