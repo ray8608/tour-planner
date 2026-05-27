@@ -488,7 +488,7 @@
     }
     .share-dialog-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
     .share-dialog input {
-      width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+      width: 100%; box-sizing: border-box; background: var(--input-bg); border: 1px solid var(--border);
       color: var(--text); border-radius: 5px; padding: 7px 10px;
       font-size: 13px; margin-bottom: 4px;
     }
@@ -528,23 +528,54 @@
       return firebase.firestore();
     }
 
-    async function fetchSharedTrips() {
+    async function fetchPublicTrips() {
       const db = getFirestore();
       if (!db) return [];
       const snap = await db.collection('shared_trips')
+        .where('visibility', '==', 'public')
         .orderBy('uploadedAt', 'desc').get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
-    async function uploadTripToCloud(password) {
+    async function fetchPrivateTrips(code) {
+      if (!code) return [];
+      const db = getFirestore();
+      if (!db) return [];
+      const hash = await sha256(code);
+      const snap = await db.collection('shared_trips')
+        .where('secretCodeHash', '==', hash)
+        .orderBy('uploadedAt', 'desc').get();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    async function migrateExistingTrips() {
+      if (localStorage.getItem('trips_migrated_v1')) return;
+      const db = getFirestore();
+      if (!db) return;
+      const snap = await db.collection('shared_trips').get();
+      const batch = db.batch();
+      snap.docs.forEach(doc => {
+        if (doc.data().visibility === undefined) {
+          batch.update(doc.ref, { visibility: 'public', secretCodeHash: null });
+        }
+      });
+      await batch.commit();
+      localStorage.setItem('trips_migrated_v1', '1');
+    }
+
+    async function uploadTripToCloud(password, visibility = 'public', secretCode = null) {
       const db = getFirestore();
       if (!db) throw new Error('Firebase 未設定');
       const hash = await sha256(password);
+      const secretCodeHash = (visibility === 'private' && secretCode)
+        ? await sha256(secretCode) : null;
       await db.collection('shared_trips').add({
         tripName: state.tripName,
         uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
         data: state,
-        deletePasswordHash: hash
+        deletePasswordHash: hash,
+        visibility,
+        secretCodeHash,
       });
     }
 
@@ -833,6 +864,12 @@
       deleteTargetId: null, deleteError: null, uploadError: null,
       importedDocId: loadImportedDocId(), updateError: null,
       overwriteTargetId: null, overwriteTargetName: null, overwriteUpdateName: true,
+      // 新增欄位
+      shareTab: 'public',
+      privateCodeInput: '',
+      privateCodeQueried: null,
+      uploadVisibility: 'public',
+      uploadSecretCode: '',
     };
 
     function setShareState(updates) {
@@ -840,12 +877,21 @@
       render();
     }
 
-    async function loadSharedTrips() {
+    async function loadPublicTrips() {
       try {
-        const list = await fetchSharedTrips();
+        const list = await fetchPublicTrips();
         setShareState({ loading: false, list });
       } catch (err) {
         setShareState({ loading: false, error: err.message || '載入失敗' });
+      }
+    }
+
+    async function loadPrivateTrips(code) {
+      try {
+        const list = await fetchPrivateTrips(code);
+        setShareState({ loading: false, list, privateCodeQueried: code });
+      } catch (err) {
+        setShareState({ loading: false, error: err.message || '查詢失敗', privateCodeQueried: code });
       }
     }
 
@@ -1061,48 +1107,120 @@
         </div>`;
     }
 
+    function renderPublicTabBody() {
+      if (!FIREBASE_CONFIG.projectId) {
+        return `<div class="share-status">共用功能尚未設定，請填入 FIREBASE_CONFIG。</div>`;
+      }
+      if (shareState.loading) return `<div class="share-status">載入中…</div>`;
+      if (shareState.error) return `<div class="share-status">⚠️ ${escHtml(shareState.error)}</div>`;
+
+      const items = shareState.list.length === 0
+        ? `<div class="share-status">目前沒有共用的行程</div>`
+        : shareState.list.map(trip => {
+            const date = trip.uploadedAt?.toDate
+              ? trip.uploadedAt.toDate().toLocaleDateString('zh-TW') : '未知日期';
+            const isImported = shareState.importedDocId === trip.id;
+            return `
+              <div class="share-trip-item" ${isImported ? 'style="background:var(--accent-bg);border-radius:6px;padding:10px 8px;margin-bottom:2px"' : ''}>
+                <div class="share-trip-info">
+                  <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
+                  <div class="share-trip-date">${escHtml(date)} 上傳</div>
+                </div>
+                ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
+                <button class="btn-ghost" data-action="open-overwrite-dialog"
+                  data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
+                <button class="btn-ghost" data-action="open-delete-dialog"
+                  data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
+              </div>`;
+          }).join('');
+
+      return `
+        <button class="share-upload-btn" data-action="open-upload-dialog">↑ 上傳目前行程</button>
+        ${items}`;
+    }
+
+    function renderPrivateTabBody() {
+      const searchBar = `
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input id="private-code-input" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:13px;background:var(--input-bg);color:var(--text)"
+            placeholder="輸入暗號…"
+            value="${escHtml(shareState.privateCodeInput)}"
+            data-action="private-code-input">
+          <button class="btn-accent" data-action="query-private-trips">查詢</button>
+        </div>`;
+
+      const uploadBtn = `<button class="share-upload-btn" data-action="open-upload-dialog-private">↑ 上傳目前行程</button>`;
+
+      let content;
+      if (!FIREBASE_CONFIG.projectId) {
+        content = `<div class="share-status">共用功能尚未設定，請填入 FIREBASE_CONFIG。</div>`;
+      } else if (shareState.privateCodeQueried === null) {
+        content = `<div class="share-status">輸入暗號後按查詢以顯示行程</div>`;
+      } else if (shareState.loading) {
+        content = `<div class="share-status">載入中…</div>`;
+      } else if (shareState.error) {
+        content = `<div class="share-status">⚠️ ${escHtml(shareState.error)}</div>`;
+      } else if (shareState.list.length === 0) {
+        content = `<div class="share-status">暗號不存在</div>`;
+      } else {
+        content = shareState.list.map(trip => {
+          const date = trip.uploadedAt?.toDate
+            ? trip.uploadedAt.toDate().toLocaleDateString('zh-TW') : '未知日期';
+          const isImported = shareState.importedDocId === trip.id;
+          return `
+            <div class="share-trip-item" ${isImported ? 'style="background:var(--accent-bg);border-radius:6px;padding:10px 8px;margin-bottom:2px"' : ''}>
+              <div class="share-trip-info">
+                <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
+                <div class="share-trip-date">${escHtml(date)} 上傳</div>
+              </div>
+              ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
+              <button class="btn-ghost" data-action="open-overwrite-dialog"
+                data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
+              <button class="btn-ghost" data-action="open-delete-dialog"
+                data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
+            </div>`;
+        }).join('');
+      }
+
+      return searchBar + (FIREBASE_CONFIG.projectId ? uploadBtn : '') + content;
+    }
+
     function renderShareOverlay() {
       if (!shareState.open) return '';
 
-      let bodyHtml;
-      if (!FIREBASE_CONFIG.projectId) {
-        bodyHtml = `<div class="share-status">共用功能尚未設定，請填入 FIREBASE_CONFIG。</div>`;
-      } else if (shareState.loading) {
-        bodyHtml = `<div class="share-status">載入中…</div>`;
-      } else if (shareState.error) {
-        bodyHtml = `<div class="share-status">⚠️ ${escHtml(shareState.error)}</div>`;
-      } else {
-        const items = shareState.list.length === 0
-          ? `<div class="share-status">目前沒有共用的行程</div>`
-          : shareState.list.map(trip => {
-              const date = trip.uploadedAt?.toDate
-                ? trip.uploadedAt.toDate().toLocaleDateString('zh-TW')
-                : '未知日期';
-              const isImported = shareState.importedDocId === trip.id;
-              return `
-                <div class="share-trip-item" ${isImported ? 'style="background:var(--accent-bg);border-radius:6px;padding:10px 8px;margin-bottom:2px"' : ''}>
-                  <div class="share-trip-info">
-                    <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
-                    <div class="share-trip-date">${escHtml(date)} 上傳</div>
-                  </div>
-                  ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
-                  <button class="btn-ghost" data-action="open-overwrite-dialog"
-                    data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
-                  <button class="btn-ghost" data-action="open-delete-dialog"
-                    data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
-                </div>`;
-            }).join('');
-        bodyHtml = `
-          <button class="share-upload-btn" data-action="open-upload-dialog">↑ 上傳目前行程</button>
-          ${items}`;
-      }
+      const tabBar = `
+        <div style="display:flex;border-bottom:1px solid var(--border)">
+          <button style="flex:1;padding:8px 0;background:none;border:none;border-bottom:${shareState.shareTab === 'public' ? '2px solid var(--accent)' : '2px solid transparent'};color:${shareState.shareTab === 'public' ? 'var(--accent)' : 'var(--text-muted)'};font-weight:${shareState.shareTab === 'public' ? '600' : 'normal'};cursor:pointer;font-size:13px"
+            data-action="switch-share-tab" data-tab="public">公開</button>
+          <button style="flex:1;padding:8px 0;background:none;border:none;border-bottom:${shareState.shareTab === 'private' ? '2px solid var(--accent)' : '2px solid transparent'};color:${shareState.shareTab === 'private' ? 'var(--accent)' : 'var(--text-muted)'};font-weight:${shareState.shareTab === 'private' ? '600' : 'normal'};cursor:pointer;font-size:13px"
+            data-action="switch-share-tab" data-tab="private">非公開</button>
+        </div>`;
+
+      const bodyHtml = shareState.shareTab === 'public'
+        ? renderPublicTabBody()
+        : renderPrivateTabBody();
 
       let dialogHtml = '';
       if (shareState.dialog === 'upload') {
+        const isPrivate = shareState.uploadVisibility === 'private';
         dialogHtml = `
           <div class="share-dialog">
-            <div class="share-dialog-title">設定刪除密碼</div>
-            <input type="password" id="share-upload-pw" placeholder="輸入刪除密碼（必填）" autocomplete="new-password">
+            <div class="share-dialog-title">上傳行程</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">公開設定</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <button class="${!isPrivate ? 'btn-accent' : 'btn'}" style="flex:1"
+                data-action="set-upload-visibility" data-val="public">公開</button>
+              <button class="${isPrivate ? 'btn-accent' : 'btn'}" style="flex:1"
+                data-action="set-upload-visibility" data-val="private">非公開</button>
+            </div>
+            ${isPrivate ? `
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">暗號（必填）</div>
+              <input id="share-upload-code" placeholder="輸入暗號"
+                value="${escHtml(shareState.uploadSecretCode)}"
+                data-action="upload-secret-code-input">
+            ` : ''}
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">刪除密碼（必填）</div>
+            <input type="password" id="share-upload-pw" placeholder="輸入刪除密碼" autocomplete="new-password">
             <div class="share-error">${shareState.uploadError ? escHtml(shareState.uploadError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
@@ -1153,6 +1271,7 @@
               <span>☁️ 共用區</span>
               <button class="btn-ghost" data-action="close-share" style="opacity:1;font-size:16px">✕</button>
             </div>
+            ${tabBar}
             <div class="share-body">${bodyHtml}</div>
           </div>
           ${dialogHtml}
@@ -1256,6 +1375,7 @@
     function init() {
       render();
       attachEvents();
+      if (FIREBASE_CONFIG.projectId) migrateExistingTrips().catch(() => {});
     }
 
     function attachEvents() {
@@ -1268,20 +1388,65 @@
         if (!action) return;
 
         if (action === 'open-share') {
-          setShareState({ open: true, loading: true, list: [], error: null, dialog: null });
-          loadSharedTrips();
+          setShareState({
+            open: true, loading: true, list: [], error: null, dialog: null,
+            shareTab: 'public', privateCodeQueried: null,
+          });
+          loadPublicTrips();
           return;
         }
         if (action === 'close-share') {
           setShareState({ open: false, dialog: null, deleteError: null, uploadError: null });
           return;
         }
+        if (action === 'switch-share-tab') {
+          const tab = el.dataset.tab;
+          if (tab === shareState.shareTab) return;
+          if (tab === 'public') {
+            setShareState({ shareTab: 'public', loading: true, list: [], error: null });
+            loadPublicTrips();
+          } else {
+            setShareState({ shareTab: 'private', loading: false, list: [], error: null, privateCodeQueried: null });
+          }
+          return;
+        }
+        if (action === 'query-private-trips') {
+          const code = document.getElementById('private-code-input')?.value?.trim();
+          if (!code) { setShareState({ error: '請輸入暗號' }); return; }
+          setShareState({ loading: true, list: [], error: null });
+          loadPrivateTrips(code);
+          return;
+        }
         if (action === 'open-upload-dialog') {
-          setShareState({ dialog: 'upload', uploadError: null });
+          setShareState({
+            dialog: 'upload',
+            uploadVisibility: 'public',
+            uploadSecretCode: '',
+            uploadError: null,
+          });
+          return;
+        }
+        if (action === 'open-upload-dialog-private') {
+          const code = document.getElementById('private-code-input')?.value?.trim();
+          setShareState({
+            dialog: 'upload',
+            uploadVisibility: 'private',
+            uploadSecretCode: code ?? '',
+            uploadError: null,
+          });
+          return;
+        }
+        if (action === 'set-upload-visibility') {
+          if (!['public', 'private'].includes(el.dataset.val)) return;
+          setShareState({ uploadVisibility: el.dataset.val, uploadError: null });
           return;
         }
         if (action === 'close-share-dialog') {
-          setShareState({ dialog: null, deleteError: null, uploadError: null, updateError: null, overwriteTargetId: null, overwriteTargetName: null, overwriteUpdateName: true });
+          setShareState({
+            dialog: null, deleteError: null, uploadError: null,
+            updateError: null, overwriteTargetId: null, overwriteTargetName: null,
+            overwriteUpdateName: true, uploadVisibility: 'public', uploadSecretCode: '',
+          });
           return;
         }
         if (action === 'new-trip') {
@@ -1298,10 +1463,13 @@
         if (action === 'confirm-upload') {
           const pw = document.getElementById('share-upload-pw')?.value?.trim();
           if (!pw) { setShareState({ uploadError: '請輸入刪除密碼' }); return; }
-          uploadTripToCloud(pw)
+          const vis = shareState.uploadVisibility;
+          const code = document.getElementById('share-upload-code')?.value?.trim() || shareState.uploadSecretCode.trim();
+          if (vis === 'private' && !code) { setShareState({ uploadError: '請輸入暗號' }); return; }
+          uploadTripToCloud(pw, vis, code)
             .then(() => {
               setShareState({ dialog: null, uploadError: null, loading: true, list: [] });
-              return loadSharedTrips();
+              return shareState.shareTab === 'public' ? loadPublicTrips() : loadPrivateTrips(shareState.privateCodeQueried || code);
             })
             .catch(err => setShareState({ uploadError: err.message || '上傳失敗' }));
           return;
@@ -1350,7 +1518,9 @@
           updateTripInCloud(docId, pw, nameToSave)
             .then(() => {
               setShareState({ dialog: null, updateError: null, loading: true, list: [] });
-              return loadSharedTrips();
+              return shareState.shareTab === 'public'
+                ? loadPublicTrips()
+                : loadPrivateTrips(shareState.privateCodeQueried);
             })
             .catch(err => setShareState({ updateError: err.message || '覆蓋失敗' }));
           return;
@@ -1370,7 +1540,9 @@
                 shareState.importedDocId = null;
               }
               setShareState({ dialog: null, deleteError: null, loading: true, list: [] });
-              return loadSharedTrips();
+              return shareState.shareTab === 'public'
+                ? loadPublicTrips()
+                : loadPrivateTrips(shareState.privateCodeQueried);
             })
             .catch(err => setShareState({ deleteError: err.message || '刪除失敗' }));
           return;
@@ -1427,6 +1599,19 @@
             clearRoutesForSpot(s, spotId);
             day.spots = day.spots.filter(sp => sp.id !== spotId);
           });
+          return;
+        }
+      });
+
+      // --- Input (sync without re-render) ---
+      app.addEventListener('input', e => {
+        const { action } = e.target.dataset;
+        if (action === 'private-code-input') {
+          shareState.privateCodeInput = e.target.value;
+          return;
+        }
+        if (action === 'upload-secret-code-input') {
+          shareState.uploadSecretCode = e.target.value;
           return;
         }
       });
