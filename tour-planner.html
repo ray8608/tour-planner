@@ -142,6 +142,40 @@
       display: none;
     }
     .settings-overlay.open { display: block; }
+    .help-overlay {
+      position: fixed; inset: 0; z-index: 300; display: none;
+    }
+    .help-overlay.open { display: block; }
+    .help-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+    .help-panel {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; width: min(560px, calc(100vw - 32px));
+      max-height: 82vh; display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 1;
+    }
+    .help-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      font-size: 14px; font-weight: 600; flex-shrink: 0;
+    }
+    .help-body { flex: 1; overflow-y: auto; padding: 16px; }
+    .help-section { margin-bottom: 20px; }
+    .help-section:last-child { margin-bottom: 0; }
+    .help-section-title {
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      margin-bottom: 8px; padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .help-item { font-size: 12px; line-height: 1.7; color: var(--text); margin-bottom: 4px; }
+    .help-item b { color: var(--text); }
+    .help-example {
+      background: var(--accent-bg); border-left: 3px solid var(--accent);
+      border-radius: 0 4px 4px 0; padding: 8px 10px;
+      font-size: 11px; line-height: 1.7; color: var(--text-muted);
+      margin-top: 6px;
+    }
     .settings-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
     .settings-panel {
       position: absolute;
@@ -857,6 +891,7 @@
     // ===== App state =====
     let state = load() || defaultState();
     let settingsOpen = false;
+    let helpOpen = false;
 
     let shareState = {
       open: false, loading: false, list: [],
@@ -1278,6 +1313,66 @@
         </div>`;
     }
 
+    function renderHelpOverlay() {
+      return `
+        <div class="help-overlay ${helpOpen ? 'open' : ''}">
+          <div class="help-backdrop" data-action="close-help"></div>
+          <div class="help-panel">
+            <div class="help-header">
+              <span>❓ 使用說明</span>
+              <button class="btn-ghost" data-action="close-help" style="opacity:1;font-size:16px">✕</button>
+            </div>
+            <div class="help-body">
+
+              <div class="help-section">
+                <div class="help-section-title">🗓 行程規劃</div>
+                <div class="help-item">• 在頂部輸入框修改<b>旅程名稱</b></div>
+                <div class="help-item">• 點 <b>＋ 新增天數</b> 增加天數；點天數標籤可切換；長按標籤名稱可重新命名</div>
+                <div class="help-item">• 點 <b>＋ 新增景點</b> 在當天加入景點，可設定名稱、停留時間、備注</div>
+                <div class="help-item">• 景點之間可設定<b>交通方式</b>與<b>交通時間</b>，時間軸會自動計算每個景點的抵達與離開時間</div>
+                <div class="help-item">• 拖曳景點卡片左側的 ⠿ 可<b>調整順序</b></div>
+                <div class="help-item">• 每天可設定<b>出發地</b>（飯店/民宿名稱）與<b>目的地</b>（當晚住宿）</div>
+              </div>
+
+              <div class="help-section">
+                <div class="help-section-title">📁 匯入 / 匯出</div>
+                <div class="help-item">• <b>📤 匯出</b>：將目前行程儲存為 .json 檔案，可作為備份</div>
+                <div class="help-item">• <b>📥 匯入</b>：選擇之前匯出的 .json 檔案還原行程（會覆蓋目前行程）</div>
+              </div>
+
+              <div class="help-section">
+                <div class="help-section-title">☁️ 共用區 — 公開</div>
+                <div class="help-item">• 點 <b>☁️ 共用</b> 開啟共用區，預設顯示<b>公開分頁</b></div>
+                <div class="help-item">• 點 <b>↑ 上傳目前行程</b>，設定刪除密碼後即可上傳</div>
+                <div class="help-item">• 已上傳的行程可讓任何人<b>匯入</b>查看，或使用<b>覆蓋</b>更新內容（需輸入刪除密碼）</div>
+                <div class="help-item">• 若對方更新了行程，直接點<b>匯入</b>即可取得最新版本</div>
+              </div>
+
+              <div class="help-section">
+                <div class="help-section-title">☁️ 共用區 — 非公開（暗號）</div>
+                <div class="help-item">• 切換到<b>非公開</b>分頁，輸入暗號後點<b>查詢</b>，即可看到該暗號下的所有行程</div>
+                <div class="help-item">• 上傳時選「非公開」並設定暗號，只有知道暗號的人才能查詢到</div>
+                <div class="help-item">• 同一個暗號可以有多筆行程，適合多人各自上傳版本再互相比較</div>
+                <div class="help-example">
+                  💡 範例：家族北海道旅遊<br>
+                  爸爸上傳行程時選「非公開」，輸入暗號 <b>hokkaido2025</b><br>
+                  其他家人在非公開分頁輸入 <b>hokkaido2025</b> 後查詢，就能看到爸爸分享的行程<br>
+                  媽媽也可以用同樣暗號上傳她的版本，兩份都會出現在查詢結果
+                </div>
+              </div>
+
+              <div class="help-section">
+                <div class="help-section-title">⚙️ 設定</div>
+                <div class="help-item">• <b>版面配置</b>：A 頁籤式 / B 側邊欄 / C 垂直捲動</div>
+                <div class="help-item">• <b>主題</b>：淺色 / 深色 / 跟隨系統</div>
+                <div class="help-item">• <b>預設交通方式</b>：新景點之間預設使用的交通方式</div>
+              </div>
+
+            </div>
+          </div>
+        </div>`;
+    }
+
     function renderHeader() {
       return `
         <header class="app-header">
@@ -1293,6 +1388,7 @@
               <input type="file" accept=".json" data-action="import-json" style="display:none">
             </label>
             <button class="btn" data-action="open-share">☁️ 共用</button>
+            <button class="btn-icon" data-action="open-help" title="說明">❓</button>
             <button class="btn-icon" data-action="toggle-settings" title="設定">⚙️</button>
           </div>
         </header>`;
@@ -1368,7 +1464,8 @@
         <main id="main-area" style="flex:1;display:flex;flex-direction:column">
           ${mainContent}
         </main>
-        ${renderShareOverlay()}`;
+        ${renderShareOverlay()}
+        ${renderHelpOverlay()}`;
       window.scrollTo(0, scrollY);
     }
 
@@ -1548,6 +1645,8 @@
           return;
         }
 
+        if (action === 'open-help')        { helpOpen = true;  render(); return; }
+        if (action === 'close-help')       { helpOpen = false; render(); return; }
         if (action === 'toggle-settings') { settingsOpen = !settingsOpen; render(); return; }
         if (action === 'close-settings')  { settingsOpen = false; render(); return; }
         if (action === 'export-json')     { exportJSON(); return; }
