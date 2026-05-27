@@ -1087,7 +1087,7 @@
                   </div>
                   ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
                   <button class="btn-ghost" data-action="open-overwrite-dialog"
-                    data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">↑</button>
+                    data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
                   <button class="btn-ghost" data-action="open-delete-dialog"
                     data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
                 </div>`;
@@ -1127,14 +1127,15 @@
           <div class="share-dialog">
             <div class="share-dialog-title">覆蓋行程</div>
             ${namesDiffer ? `
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">
                 目前行程：<strong>${escHtml(state.tripName)}</strong><br>
                 雲端行程：<strong>${escHtml(shareState.overwriteTargetName)}</strong>
               </div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;cursor:pointer">
-                <input type="checkbox" data-action="toggle-overwrite-name" ${shareState.overwriteUpdateName ? 'checked' : ''}>
-                一併將雲端名稱更新為「${escHtml(state.tripName)}」
-              </label>` : ''}
+              <div style="font-size:12px;margin-bottom:4px">是否一併將雲端名稱更新為「${escHtml(state.tripName)}」?</div>
+              <div style="display:flex;gap:6px;margin-bottom:8px">
+                <button class="${shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="true" style="flex:1">是</button>
+                <button class="${!shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="false" style="flex:1">否</button>
+              </div>` : ''}
             <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="current-password">
             <div class="share-error">${shareState.updateError ? escHtml(shareState.updateError) : ''}</div>
             <div class="share-dialog-actions">
@@ -1333,6 +1334,10 @@
         }
         if (action === 'toggle-overwrite-name') {
           setShareState({ overwriteUpdateName: !shareState.overwriteUpdateName });
+          return;
+        }
+        if (action === 'set-overwrite-update-name') {
+          setShareState({ overwriteUpdateName: el.dataset.value === 'true' });
           return;
         }
         if (action === 'confirm-overwrite') {
