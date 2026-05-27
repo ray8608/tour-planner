@@ -1126,7 +1126,7 @@
                   <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
                   <div class="share-trip-date">${escHtml(date)} 上傳</div>
                 </div>
-                ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
+                <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
                 <button class="btn-ghost" data-action="open-overwrite-dialog"
                   data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
                 <button class="btn-ghost" data-action="open-delete-dialog"
@@ -1173,7 +1173,7 @@
                 <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
                 <div class="share-trip-date">${escHtml(date)} 上傳</div>
               </div>
-              ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
+              <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
               <button class="btn-ghost" data-action="open-overwrite-dialog"
                 data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
               <button class="btn-ghost" data-action="open-delete-dialog"
