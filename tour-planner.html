@@ -1223,6 +1223,7 @@
 
     // ===== Render =====
     function render() {
+      const scrollY = window.scrollY;
       applySettings(state.settings);
       const { layout } = state.settings;
       const mainContent = layout === 'B' ? renderLayoutB()
@@ -1235,6 +1236,7 @@
           ${mainContent}
         </main>
         ${renderShareOverlay()}`;
+      window.scrollTo(0, scrollY);
     }
 
     function init() {
