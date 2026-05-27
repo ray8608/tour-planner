@@ -558,7 +558,7 @@
       await db.collection('shared_trips').doc(docId).delete();
     }
 
-    async function updateTripInCloud(docId, password) {
+    async function updateTripInCloud(docId, password, tripName = state.tripName) {
       const db = getFirestore();
       if (!db) throw new Error('Firebase 未設定');
       const doc = await db.collection('shared_trips').doc(docId).get();
@@ -566,7 +566,7 @@
       const hash = await sha256(password);
       if (hash !== doc.data().deletePasswordHash) throw new Error('密碼錯誤');
       await db.collection('shared_trips').doc(docId).update({
-        tripName: state.tripName,
+        tripName: tripName,
         uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
         data: state,
       });
@@ -832,6 +832,7 @@
       error: null, dialog: null,
       deleteTargetId: null, deleteError: null, uploadError: null,
       importedDocId: loadImportedDocId(), updateError: null,
+      overwriteTargetId: null, overwriteTargetName: null, overwriteUpdateName: true,
     };
 
     function setShareState(updates) {
@@ -1084,7 +1085,9 @@
                     <div class="share-trip-name">📋 ${escHtml(trip.tripName)}${isImported ? ' <span style="font-size:10px;color:var(--accent)">(目前匯入)</span>' : ''}</div>
                     <div class="share-trip-date">${escHtml(date)} 上傳</div>
                   </div>
-                  ${isImported ? `<button class="btn-accent" data-action="open-update-dialog" data-trip-id="${escHtml(trip.id)}">↑ 更新</button>` : `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>`}
+                  ${!isImported ? `<button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>` : ''}
+                  <button class="btn-ghost" data-action="open-overwrite-dialog"
+                    data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">↑</button>
                   <button class="btn-ghost" data-action="open-delete-dialog"
                     data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
                 </div>`;
@@ -1118,16 +1121,26 @@
                 data-trip-id="${escHtml(shareState.deleteTargetId)}">刪除</button>
             </div>
           </div>`;
-      } else if (shareState.dialog === 'update') {
+      } else if (shareState.dialog === 'overwrite') {
+        const namesDiffer = state.tripName !== shareState.overwriteTargetName;
         dialogHtml = `
           <div class="share-dialog">
-            <div class="share-dialog-title">覆蓋更新行程</div>
+            <div class="share-dialog-title">覆蓋行程</div>
+            ${namesDiffer ? `
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+                目前行程：<strong>${escHtml(state.tripName)}</strong><br>
+                雲端行程：<strong>${escHtml(shareState.overwriteTargetName)}</strong>
+              </div>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;cursor:pointer">
+                <input type="checkbox" data-action="toggle-overwrite-name" ${shareState.overwriteUpdateName ? 'checked' : ''}>
+                一併將雲端名稱更新為「${escHtml(state.tripName)}」
+              </label>` : ''}
             <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="current-password">
             <div class="share-error">${shareState.updateError ? escHtml(shareState.updateError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
-              <button class="btn-accent" data-action="confirm-update"
-                data-trip-id="${escHtml(shareState.deleteTargetId)}">確認覆蓋</button>
+              <button class="btn-accent" data-action="confirm-overwrite"
+                data-trip-id="${escHtml(shareState.overwriteTargetId)}">覆蓋</button>
             </div>
           </div>`;
       }
@@ -1267,7 +1280,7 @@
           return;
         }
         if (action === 'close-share-dialog') {
-          setShareState({ dialog: null, deleteError: null, uploadError: null });
+          setShareState({ dialog: null, deleteError: null, uploadError: null, updateError: null, overwriteTargetId: null, overwriteTargetName: null, overwriteUpdateName: true });
           return;
         }
         if (action === 'new-trip') {
@@ -1308,20 +1321,33 @@
             .catch(err => alert('匯入失敗：' + (err.message || '未知錯誤')));
           return;
         }
-        if (action === 'open-update-dialog') {
-          setShareState({ dialog: 'update', deleteTargetId: el.dataset.tripId, updateError: null });
+        if (action === 'open-overwrite-dialog') {
+          setShareState({
+            dialog: 'overwrite',
+            overwriteTargetId: el.dataset.tripId,
+            overwriteTargetName: el.dataset.tripName,
+            overwriteUpdateName: true,
+            updateError: null,
+          });
           return;
         }
-        if (action === 'confirm-update') {
+        if (action === 'toggle-overwrite-name') {
+          setShareState({ overwriteUpdateName: !shareState.overwriteUpdateName });
+          return;
+        }
+        if (action === 'confirm-overwrite') {
           const docId = el.dataset.tripId;
           const pw = document.getElementById('share-update-pw')?.value?.trim();
           if (!pw) { setShareState({ updateError: '請輸入密碼' }); return; }
-          updateTripInCloud(docId, pw)
+          const nameToSave = shareState.overwriteUpdateName
+            ? state.tripName
+            : shareState.overwriteTargetName;
+          updateTripInCloud(docId, pw, nameToSave)
             .then(() => {
               setShareState({ dialog: null, updateError: null, loading: true, list: [] });
               return loadSharedTrips();
             })
-            .catch(err => setShareState({ updateError: err.message || '更新失敗' }));
+            .catch(err => setShareState({ updateError: err.message || '覆蓋失敗' }));
           return;
         }
         if (action === 'open-delete-dialog') {
