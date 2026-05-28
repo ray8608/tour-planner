@@ -822,6 +822,7 @@
         origins:      [origin],
         destinations: [destination],
         travelMode,
+        fields: ['duration', 'condition'],
       };
       if (travelMode === 'DRIVE') req.routingPreference = 'TRAFFIC_AWARE';
       const results = [];
