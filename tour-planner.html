@@ -822,14 +822,17 @@
         origins:      [origin],
         destinations: [destination],
         travelMode,
-        fields: ['duration', 'condition'],
+        fields: ['*'],
       };
       if (travelMode === 'DRIVE') req.routingPreference = 'TRAFFIC_AWARE';
       const results = [];
       for await (const el of RouteMatrix.computeRouteMatrix(req)) results.push(el);
       const el = results[0];
       if (!el || el.condition !== 'ROUTE_EXISTS') throw new Error(`路線錯誤：${el?.condition ?? '未知'}`);
-      const secs = parseInt((el.duration ?? '0s').replace('s', ''), 10);
+      const dur = el.duration;
+      const secs = typeof dur === 'number' ? dur
+        : typeof dur === 'string' ? parseInt(dur.replace('s', ''), 10)
+        : (dur?.seconds ?? 0);
       return Math.ceil(secs / 60);
     }
 
