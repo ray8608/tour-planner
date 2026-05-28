@@ -797,21 +797,38 @@
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
     }
 
+    let _gmapLoadingPromise = null;
+    function loadGmapScript(key) {
+      if (window.google?.maps?.DistanceMatrixService) return Promise.resolve();
+      if (_gmapLoadingPromise) return _gmapLoadingPromise;
+      _gmapLoadingPromise = new Promise((resolve, reject) => {
+        window.__gmapCb = () => { delete window.__gmapCb; resolve(); };
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmapCb`;
+        s.onerror = () => { _gmapLoadingPromise = null; reject(new Error('無法載入 Google Maps，請確認 API Key 是否正確並已啟用 Maps JavaScript API')); };
+        document.head.appendChild(s);
+      });
+      return _gmapLoadingPromise;
+    }
+
     async function getGmapTravelTime(origin, destination, mode) {
       const key = localStorage.getItem('travel-planner-gmap-key');
       if (!key) throw new Error('尚未設定 API Key（請至 ⚙️ 設定 → VIP 區塊輸入）');
-      const modeMap = { driving: 'driving', walking: 'walking', transit: 'transit' };
-      const url = `https://maps.googleapis.com/maps/api/distancematrix/json`
-        + `?origins=${encodeURIComponent(origin)}`
-        + `&destinations=${encodeURIComponent(destination)}`
-        + `&mode=${modeMap[mode] || 'driving'}&language=zh-TW&key=${key}`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      if (data.status !== 'OK') throw new Error(`API 錯誤：${data.status}`);
-      const el = data.rows?.[0]?.elements?.[0];
-      if (el?.status !== 'OK') throw new Error(`路線錯誤：${el?.status || '未知'}`);
-      return Math.ceil(el.duration.value / 60);
+      await loadGmapScript(key);
+      const modeMap = { driving: 'DRIVING', walking: 'WALKING', transit: 'TRANSIT' };
+      return new Promise((resolve, reject) => {
+        new google.maps.DistanceMatrixService().getDistanceMatrix({
+          origins: [origin],
+          destinations: [destination],
+          travelMode: google.maps.TravelMode[modeMap[mode] || 'DRIVING'],
+          language: 'zh-TW',
+        }, (res, status) => {
+          if (status !== 'OK') { reject(new Error(`API 錯誤：${status}`)); return; }
+          const el = res.rows?.[0]?.elements?.[0];
+          if (el?.status !== 'OK') { reject(new Error(`路線錯誤：${el?.status || '未知'}`)); return; }
+          resolve(Math.ceil(el.duration.value / 60));
+        });
+      });
     }
 
     function mapsDirectionsUrl(from, to, mode) {
