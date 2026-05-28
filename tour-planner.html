@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW" data-theme="cream" data-layout="A">
+<html lang="zh-TW" data-theme="cream" data-layout="A" data-fontsize="normal">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -84,7 +84,7 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      font-size: 14px;
+      font-size: var(--font-size-base, 14px);
     }
     button { cursor: pointer; font-family: inherit; font-size: inherit; }
     input, select { font-family: inherit; font-size: inherit; }
@@ -499,9 +499,16 @@
     .settings-label { font-size: 11px; }
     .time-badge { font-size: 11px; }
 
+    /* ===== Font size ===== */
+    [data-fontsize="small"]  { --font-size-base: 12px; }
+    [data-fontsize="normal"] { --font-size-base: 14px; }
+    [data-fontsize="large"]  { --font-size-base: 17px; }
+
     /* ===== Mobile (≤600px) ===== */
     @media (max-width: 600px) {
-      .app-header { padding: 8px 10px; }
+      .app-header { padding: 8px 10px; flex-wrap: wrap; gap: 6px 0; }
+      .header-left { flex: 1; min-width: 0; }
+      .header-right { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
       .settings-panel { right: 8px; left: 8px; width: auto; }
       .day-sidebar { width: 90px; min-width: 90px; }
       .day-content { padding: 10px 10px; }
@@ -955,7 +962,7 @@
         tripName: '新旅程',
         tripStartDate: '',
         activeDayId: d.id,
-        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving' },
+        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving', fontSize: 'normal' },
         days: [d],
         routes: {}
       };
@@ -1090,8 +1097,9 @@
     }
 
     function applySettings(s) {
-      document.documentElement.dataset.theme  = s.theme;
-      document.documentElement.dataset.layout = s.layout;
+      document.documentElement.dataset.theme    = s.theme;
+      document.documentElement.dataset.layout   = s.layout;
+      document.documentElement.dataset.fontsize = s.fontSize || 'normal';
       document.title = `${state.tripName} — 旅遊規劃`;
     }
 
@@ -1289,6 +1297,14 @@
                 ${tb('theme','light','☀️ Light')}
                 ${tb('theme','cyberpunk','⚡ Cyber')}
                 ${tb('theme','cream','🧈 Cream')}
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-label">字體大小</div>
+              <div class="toggle-group">
+                ${tb('fontSize','small','小')}
+                ${tb('fontSize','normal','中')}
+                ${tb('fontSize','large','大')}
               </div>
             </div>
             <div class="settings-group">
@@ -2082,7 +2098,7 @@
         if (action === 'export-json')     { localMenuOpen = false; exportJSON(); return; }
 
         if (action === 'setting') {
-          const SETTING_KEYS = ['layout', 'theme', 'defaultTransport'];
+          const SETTING_KEYS = ['layout', 'theme', 'defaultTransport', 'fontSize'];
           if (!SETTING_KEYS.includes(el.dataset.key)) return;
           setState(s => { s.settings[el.dataset.key] = el.dataset.val; });
           return;
