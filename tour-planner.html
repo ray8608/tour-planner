@@ -1260,6 +1260,8 @@
                 <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
                 <button class="btn-ghost" data-action="open-overwrite-dialog"
                   data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
+                <button class="btn-ghost" data-action="copy-trip-link"
+                  data-trip-id="${escHtml(trip.id)}">分享</button>
                 <button class="btn-ghost" data-action="open-manage-dialog"
                   data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}">管理</button>
               </div>`;
@@ -1307,6 +1309,8 @@
               <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
               <button class="btn-ghost" data-action="open-overwrite-dialog"
                 data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
+              <button class="btn-ghost" data-action="copy-trip-link"
+                data-trip-id="${escHtml(trip.id)}">分享</button>
               <button class="btn-ghost" data-action="open-manage-dialog"
                 data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}">管理</button>
             </div>`;
@@ -1485,8 +1489,9 @@
                 <div class="help-item">• 點 <b>☁️ 共用</b> 開啟共用區，預設顯示<b>公開分頁</b></div>
                 <div class="help-item">• 點 <b>↑ 上傳目前行程</b>，設定刪除密碼後即可上傳</div>
                 <div class="help-item">• 已上傳的行程可讓任何人<b>匯入</b>查看，或使用<b>覆蓋</b>更新內容（需輸入刪除密碼）</div>
+                <div class="help-item">• 點 <b>分享</b> 可隨時複製該行程的分享連結；對方開啟連結後會跳出確認視窗並自動匯入</div>
                 <div class="help-item">• 點 <b>管理</b> 可對已上傳的行程進行<b>更換密碼</b>或<b>刪除行程</b>，需輸入當初設定的密碼驗證</div>
-                <div class="help-item">• 上傳成功後會自動顯示<b>分享連結</b>，直接把連結傳給對方；對方開啟後會跳出確認視窗並自動匯入</div>
+                <div class="help-item">• 上傳成功後也會自動顯示<b>分享連結</b>供複製</div>
                 <div class="help-item">• 若對方更新了行程，直接點<b>匯入</b>即可取得最新版本</div>
               </div>
 
@@ -1680,6 +1685,17 @@
         if (action === 'copy-share-url') {
           navigator.clipboard.writeText(el.dataset.url)
             .then(() => { el.textContent = '✅ 已複製'; })
+            .catch(() => alert('複製失敗，請手動複製'));
+          return;
+        }
+        if (action === 'copy-trip-link') {
+          const url = `${location.origin}${location.pathname}?import=${encodeURIComponent(el.dataset.tripId)}`;
+          navigator.clipboard.writeText(url)
+            .then(() => {
+              const orig = el.textContent;
+              el.textContent = '✅';
+              setTimeout(() => { el.textContent = orig; }, 1500);
+            })
             .catch(() => alert('複製失敗，請手動複製'));
           return;
         }
