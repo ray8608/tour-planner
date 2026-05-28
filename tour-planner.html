@@ -84,7 +84,6 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      font-size: var(--font-size-base, 14px);
     }
     button { cursor: pointer; font-family: inherit; font-size: inherit; }
     input, select { font-family: inherit; font-size: inherit; }
@@ -500,15 +499,15 @@
     .time-badge { font-size: 11px; }
 
     /* ===== Font size ===== */
-    [data-fontsize="small"]  { --font-size-base: 12px; }
-    [data-fontsize="normal"] { --font-size-base: 14px; }
-    [data-fontsize="large"]  { --font-size-base: 17px; }
+    [data-fontsize="small"]  { zoom: 0.88; }
+    [data-fontsize="normal"] { zoom: 1.00; }
+    [data-fontsize="large"]  { zoom: 1.18; }
 
     /* ===== Mobile (≤600px) ===== */
     @media (max-width: 600px) {
-      .app-header { padding: 8px 10px; flex-wrap: wrap; gap: 6px 0; }
-      .header-left { flex: 1; min-width: 0; }
-      .header-right { width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+      .app-header { padding: 8px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
+      .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .header-right { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
       .settings-panel { right: 8px; left: 8px; width: auto; }
       .day-sidebar { width: 90px; min-width: 90px; }
       .day-content { padding: 10px 10px; }
