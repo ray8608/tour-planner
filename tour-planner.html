@@ -1346,7 +1346,7 @@
         dialogHtml = `
           <div class="share-dialog">
             <div class="share-dialog-title">輸入刪除密碼</div>
-            <input type="password" id="share-delete-pw" placeholder="刪除密碼" autocomplete="off">
+            <input type="password" id="share-delete-pw" placeholder="刪除密碼" autocomplete="new-password">
             <div class="share-error">${shareState.deleteError ? escHtml(shareState.deleteError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
@@ -1369,7 +1369,7 @@
                 <button class="${shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="true" style="flex:1">是</button>
                 <button class="${!shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="false" style="flex:1">否</button>
               </div>` : ''}
-            <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="off">
+            <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="new-password">
             <div class="share-error">${shareState.updateError ? escHtml(shareState.updateError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
