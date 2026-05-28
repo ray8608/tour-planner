@@ -528,6 +528,8 @@
     }
     .share-dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
     .share-error { font-size: 12px; color: #f87171; margin-top: 4px; min-height: 18px; }
+    /* type=text 遮蔽字元，完全避開 Chrome Password Manager */
+    .pw-mask { -webkit-text-security: disc; text-security: disc; }
 
     /* ===== Mobile (≤480px) ===== */
     @media (max-width: 480px) {
@@ -1335,7 +1337,7 @@
                 data-action="upload-secret-code-input">
             ` : ''}
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">刪除密碼（必填）</div>
-            <input type="password" id="share-upload-pw" placeholder="輸入刪除密碼" autocomplete="new-password">
+            <input type="text" class="pw-mask" id="share-upload-pw" placeholder="輸入刪除密碼" autocomplete="off">
             <div class="share-error">${shareState.uploadError ? escHtml(shareState.uploadError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
@@ -1346,7 +1348,7 @@
         dialogHtml = `
           <div class="share-dialog">
             <div class="share-dialog-title">輸入刪除密碼</div>
-            <input type="password" id="share-delete-pw" placeholder="刪除密碼" autocomplete="new-password">
+            <input type="text" class="pw-mask" id="share-delete-pw" placeholder="刪除密碼" autocomplete="off">
             <div class="share-error">${shareState.deleteError ? escHtml(shareState.deleteError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
@@ -1369,7 +1371,7 @@
                 <button class="${shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="true" style="flex:1">是</button>
                 <button class="${!shareState.overwriteUpdateName ? 'btn-accent' : 'btn'}" data-action="set-overwrite-update-name" data-value="false" style="flex:1">否</button>
               </div>` : ''}
-            <input type="password" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="new-password">
+            <input type="text" class="pw-mask" id="share-update-pw" placeholder="輸入當初設定的密碼" autocomplete="off">
             <div class="share-error">${shareState.updateError ? escHtml(shareState.updateError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
