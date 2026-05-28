@@ -538,6 +538,46 @@
       .route-connector { flex-wrap: wrap; justify-content: flex-start; padding: 2px 4px; gap: 4px; }
     }
 
+    /* ===== Trip Date Input ===== */
+    .trip-date-input {
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      outline: none;
+      padding: 2px 4px;
+      transition: border-color 0.2s;
+      width: 128px;
+    }
+    .trip-date-input:hover, .trip-date-input:focus { border-bottom-color: var(--border); color: var(--text); }
+    .trip-date-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; }
+
+    /* ===== Trips Overlay ===== */
+    .trips-overlay { position: fixed; inset: 0; z-index: 200; display: none; }
+    .trips-overlay.open { display: block; }
+    .trips-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+    .trips-panel {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px;
+      width: min(300px, calc(100vw - 32px));
+      max-height: 70vh; overflow-y: auto;
+      z-index: 1; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .trips-panel-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-muted); }
+    .trip-list-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+    .trip-list-btn {
+      flex: 1; text-align: left; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+      background: var(--input-bg); color: var(--text-muted);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; font-size: 12px; cursor: pointer;
+    }
+    .trip-list-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
+    .trip-list-btn:hover { opacity: 0.8; }
+
   </style>
 </head>
 <body>
@@ -603,7 +643,7 @@
       const hash = await sha256(password);
       const secretCodeHash = (visibility === 'private' && secretCode)
         ? await sha256(secretCode) : null;
-      await db.collection('shared_trips').add({
+      const ref = await db.collection('shared_trips').add({
         tripName: state.tripName,
         uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
         data: state,
@@ -611,6 +651,7 @@
         visibility,
         secretCodeHash,
       });
+      return ref.id;
     }
 
     async function deleteSharedTrip(docId, password) {
@@ -685,6 +726,14 @@
 
     function hotelStartId(dayId) { return 'hs_' + dayId; }
     function hotelEndId(dayId)   { return 'he_' + dayId; }
+
+    function getDayDate(dayIndex) {
+      if (!state.tripStartDate) return '';
+      const d = new Date(state.tripStartDate + 'T00:00:00');
+      d.setDate(d.getDate() + dayIndex);
+      const w = ['日','一','二','三','四','五','六'];
+      return `${d.getMonth()+1}/${d.getDate()}(${w[d.getDay()]})`;
+    }
 
     // ===== Google Maps URLs =====
     function mapsNavUrl(name) {
@@ -818,11 +867,11 @@
           const data = JSON.parse(e.target.result);
           if (!Array.isArray(data.days) || !data.settings) throw new Error();
           if (!confirm('匯入將覆蓋目前行程，確定嗎？')) return;
-          state = migrateState(data);
+          setActiveTrip(migrateState(data));
           if (!state.days?.find(d => d.id === state.activeDayId)) {
             state.activeDayId = state.days?.[0]?.id ?? null;
           }
-          save(state);
+          save();
           render();
         } catch (_) { alert('JSON 格式錯誤，無法匯入'); }
       };
@@ -838,6 +887,7 @@
       const d = makeDay(1);
       return {
         tripName: '新旅程',
+        tripStartDate: '',
         activeDayId: d.id,
         settings: { layout: 'A', theme: 'dark', defaultTransport: 'driving' },
         days: [d],
@@ -847,6 +897,7 @@
 
     function migrateState(s) {
       if (!s.routes) s.routes = {};
+      if (!s.tripStartDate) s.tripStartDate = '';
       s.days.forEach(day => {
         if (!day.startTime) day.startTime = '';
         if (!day.startHotelName) day.startHotelName = day.hotelName || '';
@@ -864,19 +915,29 @@
     }
 
     // ===== Persistence =====
-    const STORAGE_KEY = 'travel-planner-v1';
+    const STORAGE_KEY      = 'travel-planner-v1';        // legacy single-trip
+    const TRIPS_KEY        = 'travel-planner-trips-v2';  // multi-trip
     const IMPORTED_DOC_KEY = 'travel-planner-imported-doc-id';
 
-    function save(s) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    function save() {
+      localStorage.setItem(TRIPS_KEY, JSON.stringify({ trips: tripList, activeIdx: activeTripIdx }));
     }
 
-    function load() {
+    function loadTripList() {
+      try {
+        const raw = localStorage.getItem(TRIPS_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          const trips = data.trips.map(migrateState);
+          const activeIdx = Math.min(data.activeIdx || 0, trips.length - 1);
+          return { trips, activeIdx };
+        }
+      } catch (_) {}
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return migrateState(JSON.parse(raw));
+        if (raw) return { trips: [migrateState(JSON.parse(raw))], activeIdx: 0 };
       } catch (_) {}
-      return null;
+      return { trips: [defaultState()], activeIdx: 0 };
     }
 
     function saveImportedDocId(docId) {
@@ -889,9 +950,24 @@
     }
 
     // ===== App state =====
-    let state = load() || defaultState();
+    let tripList = [];
+    let activeTripIdx = 0;
+    let state = null;
+    (function() {
+      const loaded = loadTripList();
+      tripList = loaded.trips;
+      activeTripIdx = loaded.activeIdx;
+      state = tripList[activeTripIdx];
+    })();
+
+    function setActiveTrip(newState) {
+      state = newState;
+      tripList[activeTripIdx] = state;
+    }
+
     let settingsOpen = false;
     let helpOpen = false;
+    let tripsOpen = false;
 
     let shareState = {
       open: false, loading: false, list: [],
@@ -905,6 +981,7 @@
       privateCodeQueried: null,
       uploadVisibility: 'public',
       uploadSecretCode: '',
+      shareUrl: null,
     };
 
     function setShareState(updates) {
@@ -935,7 +1012,7 @@
       if (!state.days.find(d => d.id === state.activeDayId)) {
         state.activeDayId = state.days[0]?.id ?? null;
       }
-      save(state);
+      save();
       render();
     }
 
@@ -1095,10 +1172,13 @@
     }
 
     function renderDayHeader(day) {
+      const dayIndex = state.days.findIndex(d => d.id === day.id);
+      const dateStr  = getDayDate(dayIndex);
       return `
         <div class="day-content-header">
           <input class="day-name-input" value="${escHtml(day.label)}"
             data-action="day-name" data-day-id="${day.id}">
+          ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
           ${renderDeleteDayBtn(day)}
         </div>`;
     }
@@ -1307,6 +1387,16 @@
               <button class="btn-ghost" data-action="close-share" style="opacity:1;font-size:16px">✕</button>
             </div>
             ${tabBar}
+            ${shareState.shareUrl ? `
+  <div style="padding:10px 16px;background:var(--accent-bg);border-bottom:1px solid var(--accent-bd)">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">✅ 上傳成功！分享連結：</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input readonly value="${escHtml(shareState.shareUrl)}"
+        style="flex:1;font-size:11px;background:var(--input-bg);border:1px solid var(--border);border-radius:3px;padding:4px 6px;color:var(--accent)"
+        onclick="this.select()">
+      <button class="btn-accent" data-action="copy-share-url" data-url="${escHtml(shareState.shareUrl)}">複製</button>
+    </div>
+  </div>` : ''}
             <div class="share-body">${bodyHtml}</div>
           </div>
           ${dialogHtml}
@@ -1326,7 +1416,8 @@
 
               <div class="help-section">
                 <div class="help-section-title">🗓 行程規劃</div>
-                <div class="help-item">• 在頂部輸入框修改<b>旅程名稱</b></div>
+                <div class="help-item">• 在頂部輸入框修改<b>旅程名稱</b>；旁邊的日期選擇器可設定<b>出發日期</b>，設定後每天標籤自動顯示實際日期（如 6/15(日)）</div>
+                <div class="help-item">• 點 <b>📋 行程</b> 可<b>新增、切換、刪除</b>多個旅行計畫，各自獨立儲存</div>
                 <div class="help-item">• 點 <b>＋ 新增天數</b> 增加天數；點天數標籤可切換；長按標籤名稱可重新命名</div>
                 <div class="help-item">• 點 <b>＋ 新增景點</b> 在當天加入景點，可設定名稱、停留時間、備注</div>
                 <div class="help-item">• 景點之間可設定<b>交通方式</b>與<b>交通時間</b>，時間軸會自動計算每個景點的抵達與離開時間</div>
@@ -1345,6 +1436,7 @@
                 <div class="help-item">• 點 <b>☁️ 共用</b> 開啟共用區，預設顯示<b>公開分頁</b></div>
                 <div class="help-item">• 點 <b>↑ 上傳目前行程</b>，設定刪除密碼後即可上傳</div>
                 <div class="help-item">• 已上傳的行程可讓任何人<b>匯入</b>查看，或使用<b>覆蓋</b>更新內容（需輸入刪除密碼）</div>
+                <div class="help-item">• 上傳成功後會自動顯示<b>分享連結</b>，直接把連結傳給對方；對方開啟後會跳出確認視窗並自動匯入</div>
                 <div class="help-item">• 若對方更新了行程，直接點<b>匯入</b>即可取得最新版本</div>
               </div>
 
@@ -1380,9 +1472,11 @@
             <span>✈️</span>
             <input class="trip-name" value="${escHtml(state.tripName)}"
               data-action="trip-name" placeholder="旅程名稱">
+            <input type="date" class="trip-date-input" value="${escHtml(state.tripStartDate)}"
+              data-action="trip-start-date" title="旅行開始日期">
           </div>
           <div class="header-right">
-            <button class="btn" data-action="new-trip">➕ 新行程</button>
+            <button class="btn" data-action="open-trips">📋 行程</button>
             <button class="btn" data-action="export-json">📤 匯出</button>
             <label class="btn" style="cursor:pointer">📥 匯入
               <input type="file" accept=".json" data-action="import-json" style="display:none">
@@ -1397,10 +1491,14 @@
     // ===== Layout A: Tabs =====
     function renderLayoutA() {
       const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
-      const tabs = state.days.map(d => `
-        <button class="day-tab ${d.id === active?.id ? 'active' : ''}"
-          data-action="select-day" data-day-id="${d.id}">${escHtml(d.label)}</button>
-      `).join('');
+      const tabs = state.days.map((d, i) => {
+        const dateStr = getDayDate(i);
+        const label = dateStr ? `${escHtml(d.label)} ${escHtml(dateStr)}` : escHtml(d.label);
+        return `
+          <button class="day-tab ${d.id === active?.id ? 'active' : ''}"
+            data-action="select-day" data-day-id="${d.id}">${label}</button>
+        `;
+      }).join('');
       return `
         <div class="day-tabs">
           ${tabs}
@@ -1414,10 +1512,14 @@
     // ===== Layout B: Sidebar =====
     function renderLayoutB() {
       const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
-      const items  = state.days.map(d => `
-        <button class="sidebar-day-btn ${d.id === active?.id ? 'active' : ''}"
-          data-action="select-day" data-day-id="${d.id}">${escHtml(d.label)}</button>
-      `).join('');
+      const items = state.days.map((d, i) => {
+        const dateStr = getDayDate(i);
+        return `
+          <button class="sidebar-day-btn ${d.id === active?.id ? 'active' : ''}"
+            data-action="select-day" data-day-id="${d.id}"
+            style="${dateStr ? 'white-space:normal;line-height:1.4' : ''}">${escHtml(d.label)}${dateStr ? `<span style="display:block;font-size:10px;opacity:0.7">${escHtml(dateStr)}</span>` : ''}</button>
+        `;
+      }).join('');
       return `
         <div class="layout-b-wrap">
           <div class="day-sidebar">
@@ -1432,21 +1534,48 @@
 
     // ===== Layout C: Vertical Scroll =====
     function renderLayoutC() {
-      const sections = state.days.map(day => `
-        <div class="day-section">
-          <div class="day-section-header">
-            <span style="color:var(--accent)">📅</span>
-            <input class="day-name-input" value="${escHtml(day.label)}"
-              data-action="day-name" data-day-id="${day.id}">
-            ${renderDeleteDayBtn(day)}
+      const sections = state.days.map((day, i) => {
+        const dateStr = getDayDate(i);
+        return `
+          <div class="day-section">
+            <div class="day-section-header">
+              <span style="color:var(--accent)">📅</span>
+              <input class="day-name-input" value="${escHtml(day.label)}"
+                data-action="day-name" data-day-id="${day.id}">
+              ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
+              ${renderDeleteDayBtn(day)}
+            </div>
+            ${renderDaySpots(day)}
           </div>
-          ${renderDaySpots(day)}
-        </div>
-      `).join('');
+        `;
+      }).join('');
       return `
         <div class="layout-c-wrap">
           ${sections}
           <button class="btn-add" style="max-width:260px" data-action="add-day">＋ 新增天數</button>
+        </div>`;
+    }
+
+    // ===== Trips Overlay =====
+    function renderTripsOverlay() {
+      if (!tripsOpen) return '';
+      const items = tripList.map((t, i) => `
+        <div class="trip-list-item">
+          <button class="trip-list-btn ${i === activeTripIdx ? 'active' : ''}"
+            data-action="switch-trip" data-idx="${i}">${escHtml(t.tripName)}</button>
+          ${tripList.length > 1
+            ? `<button class="btn-ghost" data-action="delete-trip" data-idx="${i}" title="刪除此行程">🗑</button>`
+            : ''}
+        </div>
+      `).join('');
+      return `
+        <div class="trips-overlay open" id="trips-overlay">
+          <div class="trips-backdrop" data-action="close-trips"></div>
+          <div class="trips-panel">
+            <div class="trips-panel-title">📋 行程管理</div>
+            ${items}
+            <button class="btn-add" data-action="new-trip-in-list" style="margin-top:10px">＋ 新增行程</button>
+          </div>
         </div>`;
     }
 
@@ -1465,7 +1594,8 @@
           ${mainContent}
         </main>
         ${renderShareOverlay()}
-        ${renderHelpOverlay()}`;
+        ${renderHelpOverlay()}
+        ${renderTripsOverlay()}`;
       window.scrollTo(0, scrollY);
     }
 
@@ -1473,6 +1603,7 @@
       render();
       attachEvents();
       if (FIREBASE_CONFIG.projectId) migrateExistingTrips().catch(() => {});
+      handleImportParam();
     }
 
     function attachEvents() {
@@ -1493,7 +1624,13 @@
           return;
         }
         if (action === 'close-share') {
-          setShareState({ open: false, dialog: null, deleteError: null, uploadError: null });
+          setShareState({ open: false, dialog: null, deleteError: null, uploadError: null, shareUrl: null });
+          return;
+        }
+        if (action === 'copy-share-url') {
+          navigator.clipboard.writeText(el.dataset.url)
+            .then(() => { el.textContent = '✅ 已複製'; })
+            .catch(() => alert('複製失敗，請手動複製'));
           return;
         }
         if (action === 'switch-share-tab') {
@@ -1546,14 +1683,36 @@
           });
           return;
         }
-        if (action === 'new-trip') {
-          if (!confirm('確定要清除目前行程，重頭開始一個新的行程嗎？')) return;
-          const oldSettings = state.settings;
-          state = defaultState();
-          state.settings = oldSettings;
-          save(state);
-          saveImportedDocId(null);
-          setShareState({ importedDocId: null });
+        if (action === 'open-trips') { tripsOpen = true; render(); return; }
+        if (action === 'close-trips') { tripsOpen = false; render(); return; }
+        if (action === 'switch-trip') {
+          const idx = parseInt(el.dataset.idx);
+          if (idx === activeTripIdx) { tripsOpen = false; render(); return; }
+          activeTripIdx = idx;
+          state = tripList[activeTripIdx];
+          tripsOpen = false;
+          render();
+          return;
+        }
+        if (action === 'delete-trip') {
+          const idx = parseInt(el.dataset.idx);
+          if (tripList.length <= 1) return;
+          if (!confirm('確定刪除此行程？')) return;
+          tripList.splice(idx, 1);
+          if (activeTripIdx >= tripList.length) activeTripIdx = tripList.length - 1;
+          state = tripList[activeTripIdx];
+          save();
+          render();
+          return;
+        }
+        if (action === 'new-trip-in-list') {
+          const newTrip = defaultState();
+          newTrip.settings = { ...state.settings };
+          tripList.push(newTrip);
+          activeTripIdx = tripList.length - 1;
+          state = tripList[activeTripIdx];
+          save();
+          tripsOpen = false;
           render();
           return;
         }
@@ -1564,8 +1723,9 @@
           const code = document.getElementById('share-upload-code')?.value?.trim() || shareState.uploadSecretCode.trim();
           if (vis === 'private' && !code) { setShareState({ uploadError: '請輸入暗號' }); return; }
           uploadTripToCloud(pw, vis, code)
-            .then(() => {
-              setShareState({ dialog: null, uploadError: null, loading: true, list: [] });
+            .then(docId => {
+              const shareUrl = `${location.origin}${location.pathname}?import=${docId}`;
+              setShareState({ dialog: null, uploadError: null, shareUrl, loading: true, list: [] });
               return shareState.shareTab === 'public' ? loadPublicTrips() : loadPrivateTrips(shareState.privateCodeQueried || code);
             })
             .catch(err => setShareState({ uploadError: err.message || '上傳失敗' }));
@@ -1576,11 +1736,11 @@
           if (!confirm('匯入將覆蓋目前行程，確定嗎？')) return;
           getSharedTripData(docId)
             .then(data => {
-              state = migrateState(data);
+              setActiveTrip(migrateState(data));
               if (!state.days?.find(d => d.id === state.activeDayId)) {
                 state.activeDayId = state.days?.[0]?.id ?? null;
               }
-              save(state);
+              save();
               saveImportedDocId(docId);
               setShareState({ open: false, dialog: null, importedDocId: docId });
             })
@@ -1713,11 +1873,45 @@
           shareState.uploadSecretCode = e.target.value;
           return;
         }
+        // Direct save without re-render (keeps focus/cursor during typing)
+        if (action === 'trip-name') { state.tripName = e.target.value; save(); return; }
+        if (action === 'day-name') {
+          const day = state.days.find(d => d.id === e.target.dataset.dayId);
+          if (day) { day.label = e.target.value; save(); }
+          return;
+        }
+        if (action === 'spot-name') {
+          const spot = state.days.find(d => d.id === e.target.dataset.dayId)
+            ?.spots.find(sp => sp.id === e.target.dataset.spotId);
+          if (spot) { spot.name = e.target.value; save(); }
+          return;
+        }
+        if (action === 'spot-notes') {
+          const spot = state.days.find(d => d.id === e.target.dataset.dayId)
+            ?.spots.find(sp => sp.id === e.target.dataset.spotId);
+          if (spot) { spot.notes = e.target.value; save(); }
+          return;
+        }
+        if (action === 'hotel-start-name') {
+          const day = state.days.find(d => d.id === e.target.dataset.dayId);
+          if (day) { day.startHotelName = e.target.value; save(); }
+          return;
+        }
+        if (action === 'hotel-end-name') {
+          const day = state.days.find(d => d.id === e.target.dataset.dayId);
+          if (day) { day.endHotelName = e.target.value; save(); }
+          return;
+        }
       });
 
       // --- Change ---
       app.addEventListener('change', e => {
         const action = e.target.dataset.action;
+
+        if (action === 'trip-start-date') {
+          setState(s => { s.tripStartDate = e.target.value; });
+          return;
+        }
 
         if (action === 'import-json' && e.target.files[0]) {
           importJSON(e.target.files[0]);
@@ -1946,6 +2140,27 @@
           .forEach(n => n.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
         touchDrag = null;
       });
+    }
+
+    async function handleImportParam() {
+      if (!FIREBASE_CONFIG.projectId) return;
+      const docId = new URLSearchParams(location.search).get('import');
+      if (!docId) return;
+      history.replaceState({}, '', location.pathname);
+      if (!confirm('偵測到分享連結，是否匯入該行程？（將覆蓋目前行程）')) return;
+      try {
+        const data = await getSharedTripData(docId);
+        setActiveTrip(migrateState(data));
+        if (!state.days?.find(d => d.id === state.activeDayId)) {
+          state.activeDayId = state.days?.[0]?.id ?? null;
+        }
+        save();
+        saveImportedDocId(docId);
+        shareState.importedDocId = docId;
+        render();
+      } catch (err) {
+        alert('匯入失敗：' + (err.message || '未知錯誤'));
+      }
     }
 
     init();
