@@ -799,12 +799,13 @@
 
     let _gmapLoadingPromise = null;
     function loadGmapScript(key) {
-      if (window.google?.maps?.DistanceMatrixService) return Promise.resolve();
+      if (window.google?.maps?.importLibrary) return Promise.resolve();
       if (_gmapLoadingPromise) return _gmapLoadingPromise;
       _gmapLoadingPromise = new Promise((resolve, reject) => {
         window.__gmapCb = () => { delete window.__gmapCb; resolve(); };
         const s = document.createElement('script');
-        s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmapCb`;
+        s.async = true;
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmapCb&loading=async`;
         s.onerror = () => { _gmapLoadingPromise = null; reject(new Error('無法載入 Google Maps，請確認 API Key 是否正確並已啟用 Maps JavaScript API')); };
         document.head.appendChild(s);
       });
@@ -815,20 +816,21 @@
       const key = localStorage.getItem('travel-planner-gmap-key');
       if (!key) throw new Error('尚未設定 API Key（請至 ⚙️ 設定 → VIP 區塊輸入）');
       await loadGmapScript(key);
-      const modeMap = { driving: 'DRIVING', walking: 'WALKING', transit: 'TRANSIT' };
-      return new Promise((resolve, reject) => {
-        new google.maps.DistanceMatrixService().getDistanceMatrix({
-          origins: [origin],
-          destinations: [destination],
-          travelMode: google.maps.TravelMode[modeMap[mode] || 'DRIVING'],
-          language: 'zh-TW',
-        }, (res, status) => {
-          if (status !== 'OK') { reject(new Error(`API 錯誤：${status}`)); return; }
-          const el = res.rows?.[0]?.elements?.[0];
-          if (el?.status !== 'OK') { reject(new Error(`路線錯誤：${el?.status || '未知'}`)); return; }
-          resolve(Math.ceil(el.duration.value / 60));
-        });
-      });
+      const { RouteMatrix } = await google.maps.importLibrary('routes');
+      const travelMode = { driving: 'DRIVE', walking: 'WALK', transit: 'TRANSIT' }[mode] || 'DRIVE';
+      const req = {
+        origins:      [{ waypoint: { address: origin } }],
+        destinations: [{ waypoint: { address: destination } }],
+        travelMode,
+        languageCode: 'zh-TW',
+      };
+      if (travelMode === 'DRIVE') req.routingPreference = 'TRAFFIC_AWARE';
+      const results = [];
+      for await (const el of RouteMatrix.computeRouteMatrix(req)) results.push(el);
+      const el = results[0];
+      if (!el || el.condition !== 'ROUTE_EXISTS') throw new Error(`路線錯誤：${el?.condition ?? '未知'}`);
+      const secs = parseInt((el.duration ?? '0s').replace('s', ''), 10);
+      return Math.ceil(secs / 60);
     }
 
     function mapsDirectionsUrl(from, to, mode) {
