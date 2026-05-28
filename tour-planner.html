@@ -817,14 +817,16 @@
       if (!key) throw new Error('尚未設定 API Key（請至 ⚙️ 設定 → VIP 區塊輸入）');
       await loadGmapScript(key);
       const { RouteMatrix } = await google.maps.importLibrary('routes');
-      const travelMode = { driving: 'DRIVE', walking: 'WALK', transit: 'TRANSIT' }[mode] || 'DRIVE';
+      const { TravelMode } = await google.maps.importLibrary('core');
+      const tmMap = { driving: TravelMode.DRIVING, walking: TravelMode.WALKING, transit: TravelMode.TRANSIT };
+      const travelMode = tmMap[mode] || TravelMode.DRIVING;
       const req = {
         origins:      [origin],
         destinations: [destination],
         travelMode,
         fields: ['*'],
       };
-      if (travelMode === 'DRIVE') req.routingPreference = 'TRAFFIC_AWARE';
+      if (travelMode === TravelMode.DRIVING) req.routingPreference = 'TRAFFIC_AWARE';
       const results = [];
       for await (const el of RouteMatrix.computeRouteMatrix(req)) results.push(el);
       const el = results[0];
