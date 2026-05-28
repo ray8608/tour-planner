@@ -1538,7 +1538,7 @@
               ${localMenuOpen ? `
                 <div data-action="close-local-menu" style="position:fixed;inset:0;z-index:99"></div>
                 <div style="position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:130px;box-shadow:0 4px 12px rgba(0,0,0,0.25);z-index:100;overflow:hidden">
-                  <button class="btn-ghost" data-action="export-json" style="width:100%;text-align:left;padding:8px 12px;border-radius:0;border-bottom:1px solid var(--border)">📤 匯出 JSON</button>
+                  <button data-action="export-json" style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">📤 匯出 JSON</button>
                   <label style="display:block;cursor:pointer;padding:8px 12px;color:var(--text);font-size:13px">
                     📥 匯入 JSON
                     <input type="file" accept=".json" data-action="import-json" style="display:none">
