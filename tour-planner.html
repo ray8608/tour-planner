@@ -1594,8 +1594,8 @@
             <!-- Hidden super user trigger -->
             <div style="text-align:center;padding:12px 0 4px">
               <span data-action="toggle-superuser-prompt"
-                style="font-size:12px;color:${isSuperUser() ? 'var(--color-success)' : 'var(--border)'};cursor:default;user-select:none"
-                title="">${isSuperUser() ? '★' : '·'}</span>
+                style="font-size:13px;font-weight:700;color:${isSuperUser() ? 'var(--color-success)' : 'var(--text-muted)'};cursor:pointer;user-select:none;opacity:${isSuperUser() ? '1' : '0.35'}"
+                title="${isSuperUser() ? '點擊取消超級模式' : ''}">${isSuperUser() ? '★ 超級模式' : '$'}</span>
             </div>
             ${superUserPromptOpen ? `
             <div style="padding:0 16px 14px;display:flex;gap:6px;align-items:center">
