@@ -1018,6 +1018,9 @@
     let helpOpen = false;
     let tripsOpen = false;
     let localMenuOpen = false;
+    let superUserPromptOpen = false;
+
+    function isSuperUser() { return localStorage.getItem('travel-planner-superuser') === '1'; }
 
     let shareState = {
       open: false, loading: false, list: [],
@@ -1556,6 +1559,22 @@
               </div>
 
             </div>
+
+            <!-- Hidden super user trigger -->
+            <div style="text-align:center;padding:12px 0 4px">
+              <span data-action="toggle-superuser-prompt"
+                style="font-size:12px;color:${isSuperUser() ? 'var(--color-success)' : 'var(--border)'};cursor:default;user-select:none"
+                title="">${isSuperUser() ? '★' : '·'}</span>
+            </div>
+            ${superUserPromptOpen ? `
+            <div style="padding:0 16px 14px;display:flex;gap:6px;align-items:center">
+              <input id="su-pw-input" type="password" maxlength="20" placeholder="密碼"
+                autocomplete="off"
+                style="flex:1;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:12px;outline:none"
+                onkeydown="if(event.key==='Enter'){document.querySelector('[data-action=submit-superuser-pw]')?.click();}">
+              <button class="btn-accent" data-action="submit-superuser-pw">確認</button>
+            </div>` : ''}
+
           </div>
         </div>`;
     }
@@ -1947,7 +1966,31 @@
         }
 
         if (action === 'open-help')        { helpOpen = true;  render(); return; }
-        if (action === 'close-help')       { helpOpen = false; render(); return; }
+        if (action === 'close-help')       { helpOpen = false; superUserPromptOpen = false; render(); return; }
+
+        if (action === 'toggle-superuser-prompt') {
+          if (isSuperUser()) {
+            localStorage.removeItem('travel-planner-superuser');
+            superUserPromptOpen = false;
+          } else {
+            superUserPromptOpen = !superUserPromptOpen;
+            if (superUserPromptOpen) setTimeout(() => document.getElementById('su-pw-input')?.focus(), 50);
+          }
+          render(); return;
+        }
+        if (action === 'submit-superuser-pw') {
+          const input = document.getElementById('su-pw-input');
+          if (input && input.value === '6666') {
+            localStorage.setItem('travel-planner-superuser', '1');
+            superUserPromptOpen = false;
+            render();
+          } else if (input) {
+            input.style.borderColor = '#f87171';
+            input.value = '';
+            setTimeout(() => { input.style.borderColor = ''; }, 800);
+          }
+          return;
+        }
         if (action === 'toggle-settings') { settingsOpen = !settingsOpen; render(); return; }
         if (action === 'close-settings')  { settingsOpen = false; render(); return; }
         if (action === 'toggle-local-menu') { localMenuOpen = !localMenuOpen; render(); return; }
