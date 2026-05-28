@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW" data-theme="dark" data-layout="A">
+<html lang="zh-TW" data-theme="cream" data-layout="A">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +38,40 @@
       --shadow:       0 1px 3px rgba(0,0,0,0.08);
       --input-bg:     #f8fafc;
       --color-success: #16a34a;
+      color-scheme: light;
+    }
+    [data-theme="cyberpunk"] {
+      --bg:           #060610;
+      --surface:      #0d0d1f;
+      --header-bg:    #0d0d1f;
+      --text:         #c8f0ff;
+      --text-muted:   #3a5a7a;
+      --accent:       #00d4ff;
+      --accent-bg:    #001a2f;
+      --accent-bd:    #00aadd;
+      --border:       #1a2050;
+      --border-dash:  #1a2050;
+      --time-color:   #ff2d9b;
+      --shadow:       none;
+      --input-bg:     #060610;
+      --color-success: #00ff88;
+      color-scheme: dark;
+    }
+    [data-theme="cream"] {
+      --bg:           #fdf6ee;
+      --surface:      #fffbf5;
+      --header-bg:    #f0e4d0;
+      --text:         #2d1f10;
+      --text-muted:   #9a7a60;
+      --accent:       #c07040;
+      --accent-bg:    #fff8f0;
+      --accent-bd:    #ddb890;
+      --border:       #e8d5bc;
+      --border-dash:  #ede0d0;
+      --time-color:   #c07040;
+      --shadow:       0 1px 4px rgba(160,100,40,0.08);
+      --input-bg:     #fdf6ee;
+      --color-success: #5a9a60;
       color-scheme: light;
     }
 
@@ -902,7 +936,7 @@
         tripName: '新旅程',
         tripStartDate: '',
         activeDayId: d.id,
-        settings: { layout: 'A', theme: 'dark', defaultTransport: 'driving' },
+        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving' },
         days: [d],
         routes: {}
       };
@@ -1225,6 +1259,8 @@
               <div class="toggle-group">
                 ${tb('theme','dark','🌙 Dark')}
                 ${tb('theme','light','☀️ Light')}
+                ${tb('theme','cyberpunk','⚡ Cyber')}
+                ${tb('theme','cream','🧈 Cream')}
               </div>
             </div>
             <div class="settings-group">
@@ -1512,7 +1548,7 @@
               <div class="help-section">
                 <div class="help-section-title">⚙️ 設定</div>
                 <div class="help-item">• <b>版面配置</b>：A 頁籤式 / B 側邊欄 / C 垂直捲動</div>
-                <div class="help-item">• <b>主題</b>：淺色 / 深色 / 跟隨系統</div>
+                <div class="help-item">• <b>主題</b>：🌙 Dark / ☀️ Light / ⚡ Cyber（賽博龐克）/ 🧈 Cream（現代奶油，預設）</div>
                 <div class="help-item">• <b>預設交通方式</b>：新景點之間預設使用的交通方式</div>
               </div>
 
