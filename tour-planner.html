@@ -790,6 +790,23 @@
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
     }
 
+    async function getGmapTravelTime(origin, destination, mode) {
+      const key = localStorage.getItem('travel-planner-gmap-key');
+      if (!key) throw new Error('尚未設定 API Key（請至 ⚙️ 設定 → VIP 區塊輸入）');
+      const modeMap = { driving: 'driving', walking: 'walking', transit: 'transit' };
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json`
+        + `?origins=${encodeURIComponent(origin)}`
+        + `&destinations=${encodeURIComponent(destination)}`
+        + `&mode=${modeMap[mode] || 'driving'}&language=zh-TW&key=${key}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (data.status !== 'OK') throw new Error(`API 錯誤：${data.status}`);
+      const el = data.rows?.[0]?.elements?.[0];
+      if (el?.status !== 'OK') throw new Error(`路線錯誤：${el?.status || '未知'}`);
+      return Math.ceil(el.duration.value / 60);
+    }
+
     function mapsDirectionsUrl(from, to, mode) {
       const o = from.trim() || '出發地';
       const d = to.trim() || '目的地';
@@ -1182,6 +1199,10 @@
                 <option value="walking" ${transport==='walking'?'selected':''}>🚶 步行</option>
               </select>
               <a class="btn-accent" href="${escHtml(mapsUrl)}" target="_blank" rel="noopener">查看路線 ↗</a>
+              ${isSuperUser() ? `<button class="btn-accent" data-action="auto-fill-route"
+                data-from="${fromSpot.id}" data-to="${toSpot.id}"
+                data-from-name="${escHtml(fromSpot.name || '')}" data-to-name="${escHtml(toSpot.name || '')}"
+                data-transport="${transport}">🗺</button>` : ''}
               ${timeHtml}
               <div class="route-line"></div>
             </div>
@@ -1235,6 +1256,8 @@
           <input class="day-name-input" value="${escHtml(day.label)}"
             data-action="day-name" data-day-id="${day.id}">
           ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
+          ${isSuperUser() ? `<button class="btn-accent" data-action="auto-fill-all-routes"
+            data-day-id="${day.id}" style="margin-left:auto">🗺 自動填入</button>` : ''}
           ${renderDeleteDayBtn(day)}
         </div>`;
     }
@@ -1276,6 +1299,14 @@
                 ${tb('defaultTransport','walking','🚶 步行')}
               </div>
             </div>
+            ${isSuperUser() ? `
+            <div class="settings-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+              <div class="settings-label">⚡ VIP — Google Maps API Key</div>
+              <input type="text" placeholder="貼上 API Key" autocomplete="off" spellcheck="false"
+                value="${escHtml(localStorage.getItem('travel-planner-gmap-key') || '')}"
+                style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:11px;outline:none;margin-top:2px"
+                onblur="localStorage.setItem('travel-planner-gmap-key', this.value.trim())">
+            </div>` : ''}
           </div>
         </div>`;
     }
@@ -1991,6 +2022,59 @@
           }
           return;
         }
+        if (action === 'auto-fill-route') {
+          const { from, to, transport } = el.dataset;
+          const fromName = el.dataset.fromName;
+          const toName   = el.dataset.toName;
+          const btn = el;
+          btn.textContent = '⏳'; btn.disabled = true;
+          (async () => {
+            try {
+              const mins = await getGmapTravelTime(fromName, toName, transport);
+              setState(s => {
+                const k = routeKey(from, to);
+                if (!s.routes[k]) s.routes[k] = {};
+                s.routes[k].recordedTime = mins;
+              });
+            } catch (err) {
+              btn.textContent = '✗'; btn.title = err.message;
+              setTimeout(() => render(), 2500);
+            }
+          })();
+          return;
+        }
+
+        if (action === 'auto-fill-all-routes') {
+          const dayId = el.dataset.dayId;
+          const day = state.days.find(d => d.id === dayId);
+          if (!day || day.spots.length === 0) return;
+          const btn = el;
+          btn.textContent = '⏳…'; btn.disabled = true;
+          (async () => {
+            try {
+              const nodes = [
+                { id: hotelStartId(dayId), name: day.startHotelName || '飯店' },
+                ...day.spots,
+                { id: hotelEndId(dayId),   name: day.endHotelName   || '飯店' },
+              ];
+              const updates = {};
+              for (let i = 0; i < nodes.length - 1; i++) {
+                const f = nodes[i], t = nodes[i + 1];
+                const k = routeKey(f.id, t.id);
+                const existing = state.routes[k] || {};
+                const mode = existing.transport || state.settings.defaultTransport;
+                const mins = await getGmapTravelTime(f.name, t.name, mode);
+                updates[k] = { ...existing, transport: mode, recordedTime: mins };
+              }
+              setState(s => { Object.assign(s.routes, updates); });
+            } catch (err) {
+              btn.textContent = '✗'; btn.title = err.message;
+              setTimeout(() => render(), 2500);
+            }
+          })();
+          return;
+        }
+
         if (action === 'toggle-settings') { settingsOpen = !settingsOpen; render(); return; }
         if (action === 'close-settings')  { settingsOpen = false; render(); return; }
         if (action === 'toggle-local-menu') { localMenuOpen = !localMenuOpen; render(); return; }
