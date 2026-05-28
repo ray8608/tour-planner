@@ -666,6 +666,17 @@
       await db.collection('shared_trips').doc(docId).delete();
     }
 
+    async function changeTripPassword(docId, oldPw, newPw) {
+      const db = getFirestore();
+      if (!db) throw new Error('Firebase 未設定');
+      const doc = await db.collection('shared_trips').doc(docId).get();
+      if (!doc.exists) throw new Error('記錄不存在');
+      const oldHash = await sha256(oldPw);
+      if (oldHash !== doc.data().deletePasswordHash) throw new Error('密碼錯誤');
+      const newHash = await sha256(newPw);
+      await db.collection('shared_trips').doc(docId).update({ deletePasswordHash: newHash });
+    }
+
     async function updateTripInCloud(docId, password, tripName = state.tripName) {
       const db = getFirestore();
       if (!db) throw new Error('Firebase 未設定');
@@ -984,6 +995,9 @@
       uploadVisibility: 'public',
       uploadSecretCode: '',
       shareUrl: null,
+      managingTrip: null,
+      manageView: 'main',
+      manageError: null,
     };
 
     function setShareState(updates) {
@@ -1246,8 +1260,8 @@
                 <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
                 <button class="btn-ghost" data-action="open-overwrite-dialog"
                   data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
-                <button class="btn-ghost" data-action="open-delete-dialog"
-                  data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
+                <button class="btn-ghost" data-action="open-manage-dialog"
+                  data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}">管理</button>
               </div>`;
           }).join('');
 
@@ -1293,8 +1307,8 @@
               <button class="btn-accent" data-action="import-shared-trip" data-trip-id="${escHtml(trip.id)}">匯入</button>
               <button class="btn-ghost" data-action="open-overwrite-dialog"
                 data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}" title="覆蓋此行程">覆蓋</button>
-              <button class="btn-ghost" data-action="open-delete-dialog"
-                data-trip-id="${escHtml(trip.id)}" title="刪除">🗑</button>
+              <button class="btn-ghost" data-action="open-manage-dialog"
+                data-trip-id="${escHtml(trip.id)}" data-trip-name="${escHtml(trip.tripName)}">管理</button>
             </div>`;
         }).join('');
       }
@@ -1356,6 +1370,39 @@
                 data-trip-id="${escHtml(shareState.deleteTargetId)}">刪除</button>
             </div>
           </div>`;
+      } else if (shareState.dialog === 'manage') {
+        const mt = shareState.managingTrip;
+        if (shareState.manageView === 'main') {
+          dialogHtml = `
+            <div class="share-dialog">
+              <div class="share-dialog-title">管理：${escHtml(mt.tripName)}</div>
+              <div style="display:flex;gap:10px;justify-content:center;margin-bottom:8px">
+                <button class="btn" data-action="manage-change-pw-view"
+                  style="flex:1;color:var(--warning,#f59e0b)">🔑 更換密碼</button>
+                <button class="btn" data-action="manage-delete"
+                  style="flex:1;color:var(--danger,#ef4444)">🗑 刪除行程</button>
+              </div>
+              <div class="share-dialog-actions">
+                <button class="btn" data-action="close-share-dialog">取消</button>
+              </div>
+            </div>`;
+        } else {
+          dialogHtml = `
+            <div class="share-dialog">
+              <div class="share-dialog-title" style="display:flex;align-items:center;gap:8px">
+                <button class="btn-ghost" data-action="manage-back" style="font-size:14px;padding:2px 6px">←</button>
+                更換密碼：${escHtml(mt.tripName)}
+              </div>
+              <input type="text" class="pw-mask" id="manage-old-pw" placeholder="舊密碼" autocomplete="off">
+              <input type="text" class="pw-mask" id="manage-new-pw" placeholder="新密碼" autocomplete="off" style="margin-top:6px">
+              <div class="share-error">${shareState.manageError ? escHtml(shareState.manageError) : ''}</div>
+              <div class="share-dialog-actions">
+                <button class="btn" data-action="close-share-dialog">取消</button>
+                <button class="btn-accent" data-action="manage-change-pw-submit"
+                  data-trip-id="${escHtml(mt.id)}">確認更換</button>
+              </div>
+            </div>`;
+        }
       } else if (shareState.dialog === 'overwrite') {
         const namesDiffer = state.tripName !== shareState.overwriteTargetName;
         dialogHtml = `
@@ -1438,6 +1485,7 @@
                 <div class="help-item">• 點 <b>☁️ 共用</b> 開啟共用區，預設顯示<b>公開分頁</b></div>
                 <div class="help-item">• 點 <b>↑ 上傳目前行程</b>，設定刪除密碼後即可上傳</div>
                 <div class="help-item">• 已上傳的行程可讓任何人<b>匯入</b>查看，或使用<b>覆蓋</b>更新內容（需輸入刪除密碼）</div>
+                <div class="help-item">• 點 <b>管理</b> 可對已上傳的行程進行<b>更換密碼</b>或<b>刪除行程</b>，需輸入當初設定的密碼驗證</div>
                 <div class="help-item">• 上傳成功後會自動顯示<b>分享連結</b>，直接把連結傳給對方；對方開啟後會跳出確認視窗並自動匯入</div>
                 <div class="help-item">• 若對方更新了行程，直接點<b>匯入</b>即可取得最新版本</div>
               </div>
@@ -1626,7 +1674,7 @@
           return;
         }
         if (action === 'close-share') {
-          setShareState({ open: false, dialog: null, deleteError: null, uploadError: null, shareUrl: null });
+          setShareState({ open: false, dialog: null, deleteError: null, uploadError: null, shareUrl: null, managingTrip: null, manageError: null });
           return;
         }
         if (action === 'copy-share-url') {
@@ -1682,6 +1730,7 @@
             dialog: null, deleteError: null, uploadError: null,
             updateError: null, overwriteTargetId: null, overwriteTargetName: null,
             overwriteUpdateName: true, uploadVisibility: 'public', uploadSecretCode: '',
+            managingTrip: null, manageError: null,
           });
           return;
         }
@@ -1782,6 +1831,32 @@
                 : loadPrivateTrips(shareState.privateCodeQueried);
             })
             .catch(err => setShareState({ updateError: err.message || '覆蓋失敗' }));
+          return;
+        }
+        if (action === 'open-manage-dialog') {
+          setShareState({ dialog: 'manage', managingTrip: { id: el.dataset.tripId, tripName: el.dataset.tripName }, manageView: 'main', manageError: null });
+          return;
+        }
+        if (action === 'manage-change-pw-view') {
+          setShareState({ manageView: 'changePassword', manageError: null });
+          return;
+        }
+        if (action === 'manage-back') {
+          setShareState({ manageView: 'main', manageError: null });
+          return;
+        }
+        if (action === 'manage-delete') {
+          setShareState({ dialog: 'delete', deleteTargetId: shareState.managingTrip.id, deleteError: null, managingTrip: null });
+          return;
+        }
+        if (action === 'manage-change-pw-submit') {
+          const docId = el.dataset.tripId;
+          const oldPw = document.getElementById('manage-old-pw')?.value?.trim();
+          const newPw = document.getElementById('manage-new-pw')?.value?.trim();
+          if (!oldPw || !newPw) { setShareState({ manageError: '請輸入舊密碼與新密碼' }); return; }
+          changeTripPassword(docId, oldPw, newPw)
+            .then(() => setShareState({ dialog: null, managingTrip: null, manageError: null }))
+            .catch(err => setShareState({ manageError: err.message || '更換失敗' }));
           return;
         }
         if (action === 'open-delete-dialog') {
