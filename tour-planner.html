@@ -138,6 +138,7 @@
     }
     .header-left { display: flex; align-items: center; gap: 10px; }
     .header-right { display: flex; gap: 6px; align-items: center; }
+    .header-right-break { display: none; }
     .trip-name {
       background: transparent;
       border: none;
@@ -718,6 +719,7 @@
       .app-header { padding: 8px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
       .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .header-right { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+      .header-right-break { flex-basis: 100%; }
       .settings-panel { right: 8px; left: 8px; width: auto; }
       .day-sidebar { display: none; }
       .day-switch-wrap { display: block; }
@@ -2556,6 +2558,7 @@
             </div>
             <button class="btn" data-action="open-share">☁️ 共用</button>
             <button class="btn" data-action="open-help">❓ 說明</button>
+            <span class="header-right-break"></span>
             <button class="btn-icon" data-action="undo"
               title="撤銷 (Ctrl+Z)"
               ${historyStack.undos.length === 0 ? 'disabled' : ''}>↩</button>
@@ -2705,7 +2708,7 @@
             <span class="mbb-label">景點</span>
           </button>
           <button class="mbb-btn" data-action="add-day">
-            <span class="mbb-icon">＋天</span>
+            <span class="mbb-icon">📅</span>
             <span class="mbb-label">新增天</span>
           </button>
         </div>`;
