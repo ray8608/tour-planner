@@ -735,6 +735,15 @@
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
+    async function fetchAllPrivateTrips() {
+      const db = getFirestore();
+      if (!db) return [];
+      const snap = await db.collection('shared_trips')
+        .where('visibility', '==', 'private')
+        .orderBy('uploadedAt', 'desc').get();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
     async function migrateExistingTrips() {
       if (localStorage.getItem('trips_migrated_v1')) return;
       const db = getFirestore();
@@ -774,6 +783,12 @@
       if (!doc.exists) throw new Error('記錄不存在');
       const hash = await sha256(password);
       if (hash !== doc.data().deletePasswordHash) throw new Error('密碼錯誤');
+      await db.collection('shared_trips').doc(docId).delete();
+    }
+
+    async function deleteSharedTripAsAdmin(docId) {
+      const db = getFirestore();
+      if (!db) throw new Error('Firebase 未設定');
       await db.collection('shared_trips').doc(docId).delete();
     }
 
@@ -865,46 +880,6 @@
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
     }
 
-    let _gmapLoadingPromise = null;
-    function loadGmapScript(key) {
-      if (window.google?.maps?.importLibrary) return Promise.resolve();
-      if (_gmapLoadingPromise) return _gmapLoadingPromise;
-      _gmapLoadingPromise = new Promise((resolve, reject) => {
-        window.__gmapCb = () => { delete window.__gmapCb; resolve(); };
-        const s = document.createElement('script');
-        s.async = true;
-        s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmapCb&loading=async`;
-        s.onerror = () => { _gmapLoadingPromise = null; reject(new Error('無法載入 Google Maps，請確認 API Key 是否正確並已啟用 Maps JavaScript API')); };
-        document.head.appendChild(s);
-      });
-      return _gmapLoadingPromise;
-    }
-
-    async function getGmapTravelTime(origin, destination, mode) {
-      const key = localStorage.getItem('travel-planner-gmap-key');
-      if (!key) throw new Error('尚未設定 API Key（請至 ⚙️ 設定 → VIP 區塊輸入）');
-      await loadGmapScript(key);
-      const { RouteMatrix } = await google.maps.importLibrary('routes');
-      const { TravelMode } = await google.maps.importLibrary('core');
-      const tmMap = { driving: TravelMode.DRIVING, walking: TravelMode.WALKING, transit: TravelMode.TRANSIT };
-      const travelMode = tmMap[mode] || TravelMode.DRIVING;
-      const req = {
-        origins:      [origin],
-        destinations: [destination],
-        travelMode,
-        fields: ['*'],
-      };
-      if (travelMode === TravelMode.DRIVING) req.routingPreference = 'TRAFFIC_AWARE';
-      const results = [];
-      for await (const el of RouteMatrix.computeRouteMatrix(req)) results.push(el);
-      const el = results[0];
-      if (!el || el.condition !== 'ROUTE_EXISTS') throw new Error(`路線錯誤：${el?.condition ?? '未知'}`);
-      const dur = el.duration;
-      const secs = typeof dur === 'number' ? dur
-        : typeof dur === 'string' ? parseInt(dur.replace('s', ''), 10)
-        : (dur?.seconds ?? 0);
-      return Math.ceil(secs / 60);
-    }
 
     function mapsDirectionsUrl(from, to, mode) {
       const o = from.trim() || '出發地';
@@ -1180,6 +1155,15 @@
       }
     }
 
+    async function loadAllPrivateTrips() {
+      try {
+        const list = await fetchAllPrivateTrips();
+        setShareState({ loading: false, list, privateCodeQueried: '__SUPERUSER__' });
+      } catch (err) {
+        setShareState({ loading: false, error: err.message || '載入失敗', privateCodeQueried: '__SUPERUSER__' });
+      }
+    }
+
     function setState(updater) {
       updater(state);
       if (!state.days.find(d => d.id === state.activeDayId)) {
@@ -1300,10 +1284,6 @@
                 <option value="walking" ${transport==='walking'?'selected':''}>🚶 步行</option>
               </select>
               <a class="btn-accent" href="${escHtml(mapsUrl)}" target="_blank" rel="noopener">查看路線 ↗</a>
-              ${isSuperUser() ? `<button class="btn-accent" data-action="auto-fill-route"
-                data-from="${fromSpot.id}" data-to="${toSpot.id}"
-                data-from-name="${escHtml(fromSpot.name || '')}" data-to-name="${escHtml(toSpot.name || '')}"
-                data-transport="${transport}">🗺</button>` : ''}
               ${timeHtml}
               <div class="route-line"></div>
             </div>
@@ -1357,8 +1337,6 @@
           <input class="day-name-input" value="${escHtml(day.label)}"
             data-action="day-name" data-day-id="${day.id}">
           ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
-          ${isSuperUser() ? `<button class="btn-accent" data-action="auto-fill-all-routes"
-            data-day-id="${day.id}" style="margin-left:auto">🗺 自動填入</button>` : ''}
           ${renderDeleteDayBtn(day)}
         </div>`;
     }
@@ -1408,14 +1386,6 @@
                 ${tb('defaultTransport','walking','🚶 步行')}
               </div>
             </div>
-            ${isSuperUser() ? `
-            <div class="settings-group" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-              <div class="settings-label">⚡ VIP — Google Maps API Key</div>
-              <input type="text" placeholder="貼上 API Key" autocomplete="off" spellcheck="false"
-                value="${escHtml(localStorage.getItem('travel-planner-gmap-key') || '')}"
-                style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;padding:5px 8px;color:var(--text);font-size:11px;outline:none;margin-top:2px"
-                onblur="localStorage.setItem('travel-planner-gmap-key', this.value.trim())">
-            </div>` : ''}
           </div>
         </div>`;
     }
@@ -1455,8 +1425,11 @@
     }
 
     function renderPrivateTabBody() {
-      const searchBar = `
-        <div style="display:flex;gap:6px;margin-bottom:10px">
+      const superUser = isSuperUser();
+
+      const headerBar = superUser
+        ? `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px;font-weight:600;color:var(--color-success)">★ 超級模式全覽</div>`
+        : `<div style="display:flex;gap:6px;margin-bottom:10px">
           <input id="private-code-input" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:13px;background:var(--input-bg);color:var(--text)"
             placeholder="輸入暗號…"
             value="${escHtml(shareState.privateCodeInput)}"
@@ -1469,14 +1442,16 @@
       let content;
       if (!FIREBASE_CONFIG.projectId) {
         content = `<div class="share-status">共用功能尚未設定，請填入 FIREBASE_CONFIG。</div>`;
-      } else if (shareState.privateCodeQueried === null) {
-        content = `<div class="share-status">輸入暗號後按查詢以顯示行程</div>`;
       } else if (shareState.loading) {
         content = `<div class="share-status">載入中…</div>`;
       } else if (shareState.error) {
         content = `<div class="share-status">⚠️ ${escHtml(shareState.error)}</div>`;
+      } else if (shareState.privateCodeQueried === null) {
+        content = superUser
+          ? `<div class="share-status">載入中…</div>`
+          : `<div class="share-status">輸入暗號後按查詢以顯示行程</div>`;
       } else if (shareState.list.length === 0) {
-        content = `<div class="share-status">暗號不存在</div>`;
+        content = `<div class="share-status">${superUser ? '沒有非公開行程' : '暗號不存在'}</div>`;
       } else {
         content = shareState.list.map(trip => {
           const date = trip.uploadedAt?.toDate
@@ -1499,7 +1474,7 @@
         }).join('');
       }
 
-      return searchBar + (FIREBASE_CONFIG.projectId ? uploadBtn : '') + content;
+      return headerBar + (FIREBASE_CONFIG.projectId ? uploadBtn : '') + content;
     }
 
     function renderShareOverlay() {
@@ -1549,6 +1524,7 @@
           <div class="share-dialog">
             <div class="share-dialog-title">輸入刪除密碼</div>
             <input type="text" class="pw-mask" id="share-delete-pw" placeholder="刪除密碼" autocomplete="off">
+            ${isSuperUser() ? '<div style="font-size:12px;color:var(--color-success);margin-top:4px">★ 超級模式：可留空直接刪除</div>' : ''}
             <div class="share-error">${shareState.deleteError ? escHtml(shareState.deleteError) : ''}</div>
             <div class="share-dialog-actions">
               <button class="btn" data-action="close-share-dialog">取消</button>
@@ -1936,6 +1912,9 @@
           if (tab === 'public') {
             setShareState({ shareTab: 'public', loading: true, list: [], error: null });
             loadPublicTrips();
+          } else if (isSuperUser()) {
+            setShareState({ shareTab: 'private', loading: true, list: [], error: null, privateCodeQueried: null });
+            loadAllPrivateTrips();
           } else {
             setShareState({ shareTab: 'private', loading: false, list: [], error: null, privateCodeQueried: null });
           }
@@ -2024,7 +2003,9 @@
             .then(docId => {
               const shareUrl = `${location.origin}${location.pathname}?import=${docId}`;
               setShareState({ dialog: null, uploadError: null, shareUrl, loading: true, list: [] });
-              return shareState.shareTab === 'public' ? loadPublicTrips() : loadPrivateTrips(shareState.privateCodeQueried || code);
+              return shareState.shareTab === 'public' ? loadPublicTrips()
+                : shareState.privateCodeQueried === '__SUPERUSER__' ? loadAllPrivateTrips()
+                : loadPrivateTrips(shareState.privateCodeQueried || code);
             })
             .catch(err => setShareState({ uploadError: err.message || '上傳失敗' }));
           return;
@@ -2075,7 +2056,9 @@
               setShareState({ dialog: null, updateError: null, loading: true, list: [] });
               return shareState.shareTab === 'public'
                 ? loadPublicTrips()
-                : loadPrivateTrips(shareState.privateCodeQueried);
+                : shareState.privateCodeQueried === '__SUPERUSER__'
+                  ? loadAllPrivateTrips()
+                  : loadPrivateTrips(shareState.privateCodeQueried);
             })
             .catch(err => setShareState({ updateError: err.message || '覆蓋失敗' }));
           return;
@@ -2113,18 +2096,23 @@
         if (action === 'confirm-delete') {
           const docId = el.dataset.tripId;
           const pw = document.getElementById('share-delete-pw')?.value?.trim();
-          if (!pw) { setShareState({ deleteError: '請輸入密碼' }); return; }
-          deleteSharedTrip(docId, pw)
-            .then(() => {
-              if (shareState.importedDocId === docId) {
-                saveImportedDocId(null);
-                shareState.importedDocId = null;
-              }
-              setShareState({ dialog: null, deleteError: null, loading: true, list: [] });
-              return shareState.shareTab === 'public'
-                ? loadPublicTrips()
+          if (!pw && !isSuperUser()) { setShareState({ deleteError: '請輸入密碼' }); return; }
+          const reloadAfterDelete = () => {
+            if (shareState.importedDocId === docId) {
+              saveImportedDocId(null);
+              shareState.importedDocId = null;
+            }
+            setShareState({ dialog: null, deleteError: null, loading: true, list: [] });
+            return shareState.shareTab === 'public'
+              ? loadPublicTrips()
+              : shareState.privateCodeQueried === '__SUPERUSER__'
+                ? loadAllPrivateTrips()
                 : loadPrivateTrips(shareState.privateCodeQueried);
-            })
+          };
+          const deletePromise = (!pw && isSuperUser())
+            ? deleteSharedTripAsAdmin(docId)
+            : deleteSharedTrip(docId, pw);
+          deletePromise.then(reloadAfterDelete)
             .catch(err => setShareState({ deleteError: err.message || '刪除失敗' }));
           return;
         }
@@ -2153,58 +2141,6 @@
             input.value = '';
             setTimeout(() => { input.style.borderColor = ''; }, 800);
           }
-          return;
-        }
-        if (action === 'auto-fill-route') {
-          const { from, to, transport } = el.dataset;
-          const fromName = el.dataset.fromName;
-          const toName   = el.dataset.toName;
-          const btn = el;
-          btn.textContent = '⏳'; btn.disabled = true;
-          (async () => {
-            try {
-              const mins = await getGmapTravelTime(fromName, toName, transport);
-              setState(s => {
-                const k = routeKey(from, to);
-                if (!s.routes[k]) s.routes[k] = {};
-                s.routes[k].recordedTime = mins;
-              });
-            } catch (err) {
-              btn.textContent = '✗'; btn.title = err.message;
-              setTimeout(() => render(), 2500);
-            }
-          })();
-          return;
-        }
-
-        if (action === 'auto-fill-all-routes') {
-          const dayId = el.dataset.dayId;
-          const day = state.days.find(d => d.id === dayId);
-          if (!day || day.spots.length === 0) return;
-          const btn = el;
-          btn.textContent = '⏳…'; btn.disabled = true;
-          (async () => {
-            try {
-              const nodes = [
-                { id: hotelStartId(dayId), name: day.startHotelName || '飯店' },
-                ...day.spots,
-                { id: hotelEndId(dayId),   name: day.endHotelName   || '飯店' },
-              ];
-              const updates = {};
-              for (let i = 0; i < nodes.length - 1; i++) {
-                const f = nodes[i], t = nodes[i + 1];
-                const k = routeKey(f.id, t.id);
-                const existing = state.routes[k] || {};
-                const mode = existing.transport || state.settings.defaultTransport;
-                const mins = await getGmapTravelTime(f.name, t.name, mode);
-                updates[k] = { ...existing, transport: mode, recordedTime: mins };
-              }
-              setState(s => { Object.assign(s.routes, updates); });
-            } catch (err) {
-              btn.textContent = '✗'; btn.title = err.message;
-              setTimeout(() => render(), 2500);
-            }
-          })();
           return;
         }
 
