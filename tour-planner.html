@@ -327,6 +327,44 @@
 
     /* ===== Day Content ===== */
     .day-content { flex: 1; padding: 14px 16px; max-width: 760px; }
+
+    /* ===== Layout B mobile day picker ===== */
+    .day-switch-wrap { display: none; position: relative; margin-bottom: 8px; }
+    .day-switch-btn {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 10px; cursor: pointer;
+      max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .day-switch-btn:hover { border-color: var(--accent-bd); color: var(--accent); }
+    .day-dropdown-backdrop { position: fixed; inset: 0; z-index: 49; }
+    .day-dropdown-menu {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; z-index: 50; min-width: 180px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25); overflow: hidden;
+    }
+    .day-dropdown-item {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; text-align: left; background: transparent;
+      border: none; border-bottom: 1px solid var(--border);
+      color: var(--text-muted); font-size: 13px;
+      padding: 9px 14px; cursor: pointer; gap: 8px;
+    }
+    .day-dropdown-item:last-of-type { border-bottom: none; }
+    .day-dropdown-item:hover { background: var(--accent-bg); color: var(--accent); }
+    .day-dropdown-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+    .day-dropdown-date { font-size: 11px; color: var(--text-muted); }
+    .day-dropdown-item.active .day-dropdown-date { color: var(--accent); opacity: 0.75; }
+    .day-dropdown-add {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%; text-align: left; background: transparent;
+      border: none; border-top: 1px dashed var(--border-dash);
+      color: var(--accent); font-size: 13px;
+      padding: 9px 14px; cursor: pointer;
+    }
+    .day-dropdown-add:hover { background: var(--accent-bg); }
     .day-content-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     .day-name-input {
       background: transparent;
@@ -539,7 +577,8 @@
       .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .header-right { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
       .settings-panel { right: 8px; left: 8px; width: auto; }
-      .day-sidebar { width: 90px; min-width: 90px; }
+      .day-sidebar { display: none; }
+      .day-switch-wrap { display: block; }
       .day-content { padding: 10px 10px; }
       .layout-c-wrap { padding: 10px; }
       .timeline-left { width: 72px; min-width: 72px; padding-right: 6px; }
@@ -1115,6 +1154,7 @@
       managingTrip: null,
       manageView: 'main',
       manageError: null,
+      dayDropdownOpen: false,
     };
 
     function setShareState(updates) {
@@ -1749,8 +1789,32 @@
             <button class="sidebar-day-add" data-action="add-day">＋ 新增天</button>
           </div>
           <div class="day-content">
+            <div class="day-switch-wrap">
+              <button class="day-switch-btn" data-action="toggle-day-dropdown">
+                ${escHtml(active?.label || '天數')} ▾
+              </button>
+              ${shareState.dayDropdownOpen ? renderDayDropdown(active) : ''}
+            </div>
             ${active ? renderDayHeader(active) + renderDaySpots(active) : ''}
           </div>
+        </div>`;
+    }
+
+    // ===== Layout B mobile day dropdown =====
+    function renderDayDropdown(activeDay) {
+      const items = state.days.map((d, i) => {
+        const dateStr = getDayDate(i);
+        return `<button class="day-dropdown-item ${d.id === activeDay?.id ? 'active' : ''}"
+          data-action="select-day" data-day-id="${d.id}">
+          <span>${escHtml(d.label)}</span>
+          ${dateStr ? `<span class="day-dropdown-date">${escHtml(dateStr)}</span>` : ''}
+        </button>`;
+      }).join('');
+      return `
+        <div class="day-dropdown-backdrop" data-action="close-day-dropdown"></div>
+        <div class="day-dropdown-menu">
+          ${items}
+          <button class="day-dropdown-add" data-action="add-day">＋ 新增天數</button>
         </div>`;
     }
 
@@ -2157,12 +2221,23 @@
           return;
         }
 
+        if (action === 'toggle-day-dropdown') {
+          setShareState({ dayDropdownOpen: !shareState.dayDropdownOpen });
+          return;
+        }
+
+        if (action === 'close-day-dropdown') {
+          setShareState({ dayDropdownOpen: false });
+          return;
+        }
+
         if (action === 'add-day') {
           setState(s => {
             const d = makeDay(s.days.length + 1);
             s.days.push(d);
             s.activeDayId = d.id;
           });
+          if (shareState.dayDropdownOpen) setShareState({ dayDropdownOpen: false });
           return;
         }
 
@@ -2170,6 +2245,7 @@
           const container = el.closest('[data-day-id]');
           if (!container) return;
           setState(s => { s.activeDayId = container.dataset.dayId; });
+          if (shareState.dayDropdownOpen) setShareState({ dayDropdownOpen: false });
           return;
         }
 
