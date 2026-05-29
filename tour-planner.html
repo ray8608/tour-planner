@@ -525,6 +525,30 @@
       padding: 2px 4px;
       font-size: 11px;
     }
+    /* ===== Day Stats Bar ===== */
+    .day-stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 4px 0 8px;
+    }
+    .day-stats-sep { opacity: 0.4; }
+    .day-stats-overtime { color: var(--danger, #e05); font-size: 11px; }
+    /* ===== Trip Stats (settings panel) ===== */
+    .trip-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      font-size: 12px;
+    }
+    .trip-stats-label { color: var(--text-muted); }
+    .trip-stats-value { color: var(--text); font-weight: 600; text-align: right; }
     /* ===== Font size bump (16px base) ===== */
     body { font-size: 16px; }
     .trip-name { font-size: 17px; }
@@ -938,6 +962,86 @@
       return slots;
     }
 
+    function computeDayStats(day, slots) {
+      const spotCount = day.spots.length;
+
+      // 總停留時間（分鐘）
+      const stayTotal = day.spots.reduce((s, sp) => s + (sp.stayDuration || 0), 0);
+
+      // 總交通時間（分鐘）：飯店→第1景點、各景點間、最後景點→飯店
+      let transitTotal = 0;
+      if (day.spots.length > 0) {
+        const allFromIds = [hotelStartId(day.id), ...day.spots.slice(0, -1).map(s => s.id)];
+        const allToIds   = [...day.spots.map(s => s.id), hotelEndId(day.id)];
+        allFromIds.forEach((fromId, i) => {
+          const rk = routeKey(fromId, allToIds[i]);
+          transitTotal += (state.routes[rk] || {}).recordedTime || 0;
+        });
+      }
+
+      // 行程總時長（分鐘）：需要 startTime 且最終返回時間有值
+      let totalMins = null;
+      const endSlot = slots[hotelEndId(day.id)];
+      if (day.startTime && endSlot && endSlot.start) {
+        const toMins = t => parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
+        let diff = toMins(endSlot.start) - toMins(day.startTime);
+        if (diff < 0) diff += 1440; // 跨午夜
+        totalMins = diff;
+      }
+
+      // 空閒時間（totalMins 為 null 時也為 null）
+      const freeMins = (totalMins !== null) ? (totalMins - stayTotal - transitTotal) : null;
+
+      return { spotCount, stayTotal, transitTotal, totalMins, freeMins };
+    }
+
+    function renderDayStatsBar(stats) {
+      if (stats.spotCount === 0) return '';
+
+      function fmtMins(m) {
+        if (!m || m <= 0) return null;
+        const h = Math.floor(m / 60);
+        const min = m % 60;
+        if (h > 0 && min > 0) return `${h}h ${min}m`;
+        if (h > 0) return `${h}h`;
+        return `${min}m`;
+      }
+
+      const sep = `<span class="day-stats-sep">·</span>`;
+      const parts = [];
+
+      parts.push(`<span>${stats.spotCount} 個景點</span>`);
+
+      const stayStr = fmtMins(stats.stayTotal);
+      if (stayStr) parts.push(`<span>停留 ${stayStr}</span>`);
+
+      const transitStr = fmtMins(stats.transitTotal);
+      if (transitStr) parts.push(`<span>交通 ${transitStr}</span>`);
+
+      if (stats.totalMins !== null) {
+        const totalStr = fmtMins(stats.totalMins);
+        if (totalStr) parts.push(`<span>共 ${totalStr}</span>`);
+      }
+
+      let overtime = '';
+      if (stats.freeMins !== null && stats.freeMins < 0) {
+        const overStr = fmtMins(Math.abs(stats.freeMins));
+        overtime = `<span class="day-stats-overtime">⚠ 超時 ${overStr || '0m'}</span>`;
+      }
+
+      return `<div class="day-stats-bar">${parts.join(sep)}${overtime}</div>`;
+    }
+
+    function computeTripStats() {
+      const totalDays  = state.days.length;
+      const totalSpots = state.days.reduce((s, d) => s + d.spots.length, 0);
+      const routes     = Object.values(state.routes);
+      const walkCount    = routes.filter(r => r.transport === 'walking').length;
+      const driveCount   = routes.filter(r => r.transport === 'driving').length;
+      const transitCount = routes.filter(r => r.transport === 'transit').length;
+      return { totalDays, totalSpots, walkCount, driveCount, transitCount };
+    }
+
     function formatTimeBadge(slot) {
       if (!slot || !slot.start) return '';
       if (!slot.end || slot.start === slot.end) return slot.start;
@@ -1319,6 +1423,7 @@
 
       html += `</div>`;
       html += renderHotelEndMarker(day, slots);
+      html += renderDayStatsBar(computeDayStats(day, slots));
       html += `<button class="btn-add" data-action="add-spot" data-day-id="${day.id}">＋ 新增景點</button>`;
       return html;
     }
@@ -1386,6 +1491,24 @@
                 ${tb('defaultTransport','walking','🚶 步行')}
               </div>
             </div>
+            ${(() => {
+              const ts = computeTripStats();
+              return `<div class="settings-group">
+              <div class="settings-label">📊 行程統計</div>
+              <div class="trip-stats-grid">
+                <span class="trip-stats-label">總天數</span>
+                <span class="trip-stats-value">${ts.totalDays} 天</span>
+                <span class="trip-stats-label">總景點數</span>
+                <span class="trip-stats-value">${ts.totalSpots} 個</span>
+                <span class="trip-stats-label">🚗 開車</span>
+                <span class="trip-stats-value">${ts.driveCount} 次</span>
+                <span class="trip-stats-label">🚌 大眾運輸</span>
+                <span class="trip-stats-value">${ts.transitCount} 次</span>
+                <span class="trip-stats-label">🚶 步行</span>
+                <span class="trip-stats-value">${ts.walkCount} 次</span>
+              </div>
+            </div>`;
+            })()}
           </div>
         </div>`;
     }
