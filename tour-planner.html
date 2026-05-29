@@ -137,8 +137,9 @@
       width: 100%;
     }
     .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-right-group { display: flex; gap: 6px; align-items: center; }
     .header-right { display: flex; gap: 6px; align-items: center; }
-    .header-right-break { display: none; }
+    .header-actions { display: flex; gap: 6px; align-items: center; }
     .trip-name {
       background: transparent;
       border: none;
@@ -720,8 +721,9 @@
     @media (max-width: 600px) {
       .app-header { padding: 8px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
       .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-      .header-right { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
-      .header-right-break { flex-basis: 100%; }
+      .header-right-group { flex-direction: column; gap: 4px; align-items: stretch; }
+      .header-right { justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+      .header-actions { justify-content: flex-end; gap: 6px; }
       .settings-panel { right: 8px; left: 8px; width: auto; }
       .day-sidebar { display: none; }
       .day-switch-wrap { display: block; }
@@ -2535,41 +2537,44 @@
             <input type="date" class="trip-date-input" value="${escHtml(state.tripStartDate)}"
               data-action="trip-start-date" title="旅行開始日期">
           </div>
-          <div class="header-right">
-            <button class="btn" data-action="open-trips">📋 行程</button>
-            <div style="position:relative">
-              <button class="btn" data-action="toggle-local-menu">💾 本地 ▾</button>
-              ${localMenuOpen ? `
-                <div data-action="close-local-menu" style="position:fixed;inset:0;z-index:99"></div>
-                <div style="position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.25);z-index:100;overflow:hidden">
-                  <button data-action="export-json" style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">📤 匯出 JSON</button>
-                  <label style="display:block;cursor:pointer;padding:8px 12px;color:var(--text);font-size:13px">
-                    📥 匯入 JSON
-                    <input type="file" accept=".json" data-action="import-json" style="display:none">
-                  </label>
-                  <hr style="border:none;border-top:1px solid var(--border);margin:2px 0">
-                  <button data-action="print-trip"
-                    style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
-                           color:var(--text);font-size:13px;cursor:pointer">
-                    🖨 列印 / PDF
-                  </button>
-                  <button data-action="export-ics"
-                    style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
-                           border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">
-                    📅 匯出行事曆 (.ics)
-                  </button>
-                </div>` : ''}
+          <div class="header-right-group">
+            <div class="header-right">
+              <button class="btn" data-action="open-trips">📋 行程</button>
+              <div style="position:relative">
+                <button class="btn" data-action="toggle-local-menu">💾 本地 ▾</button>
+                ${localMenuOpen ? `
+                  <div data-action="close-local-menu" style="position:fixed;inset:0;z-index:99"></div>
+                  <div style="position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.25);z-index:100;overflow:hidden">
+                    <button data-action="export-json" style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">📤 匯出 JSON</button>
+                    <label style="display:block;cursor:pointer;padding:8px 12px;color:var(--text);font-size:13px">
+                      📥 匯入 JSON
+                      <input type="file" accept=".json" data-action="import-json" style="display:none">
+                    </label>
+                    <hr style="border:none;border-top:1px solid var(--border);margin:2px 0">
+                    <button data-action="print-trip"
+                      style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                             color:var(--text);font-size:13px;cursor:pointer">
+                      🖨 列印 / PDF
+                    </button>
+                    <button data-action="export-ics"
+                      style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                             border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">
+                      📅 匯出行事曆 (.ics)
+                    </button>
+                  </div>` : ''}
+              </div>
+              <button class="btn" data-action="open-share">☁️ 共用</button>
+              <button class="btn" data-action="open-help">❓ 說明</button>
             </div>
-            <button class="btn" data-action="open-share">☁️ 共用</button>
-            <button class="btn" data-action="open-help">❓ 說明</button>
-            <span class="header-right-break"></span>
-            <button class="btn-icon" data-action="undo"
-              title="撤銷 (Ctrl+Z)"
-              ${historyStack.undos.length === 0 ? 'disabled' : ''}>↩</button>
-            <button class="btn-icon" data-action="redo"
-              title="重做 (Ctrl+Y)"
-              ${historyStack.redos.length === 0 ? 'disabled' : ''}>↪</button>
-            <button class="btn-icon" data-action="toggle-settings" title="設定">⚙️</button>
+            <div class="header-actions">
+              <button class="btn-icon" data-action="undo"
+                title="撤銷 (Ctrl+Z)"
+                ${historyStack.undos.length === 0 ? 'disabled' : ''}>↩</button>
+              <button class="btn-icon" data-action="redo"
+                title="重做 (Ctrl+Y)"
+                ${historyStack.redos.length === 0 ? 'disabled' : ''}>↪</button>
+              <button class="btn-icon" data-action="toggle-settings" title="設定">⚙️</button>
+            </div>
           </div>
         </header>`;
     }
