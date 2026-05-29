@@ -256,6 +256,8 @@
       width: 260px;
       z-index: 1;
       box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      max-height: calc(100vh - 70px);
+      overflow-y: auto;
     }
     .settings-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--text-muted); }
     .settings-group { margin-bottom: 14px; }
@@ -1183,7 +1185,8 @@
     }
 
     async function geocodeCity(cityName) {
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
+      const lang = navigator.language ? navigator.language.split('-')[0] : 'en';
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=${lang}&format=json`;
       const res  = await fetch(url);
       if (!res.ok) throw new Error('geocode network error');
       const data = await res.json();
@@ -2157,15 +2160,16 @@
             </div>
             <div class="settings-group">
               <div class="settings-label">天氣城市</div>
-              <div style="display:flex;gap:6px;align-items:center">
-                <input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:13px;background:var(--input-bg);color:var(--text)"
-                  placeholder="Tokyo, 台北, Paris…"
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <input style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:13px;background:var(--input-bg);color:var(--text)"
+                  placeholder="Tokyo, Taipei, Paris…"
                   value="${escHtml(state.settings.weatherCity || '')}"
                   data-action="weather-city-input">
                 <button class="btn-accent" data-action="confirm-weather-city"
                   ${weatherGeoLoading ? 'disabled' : ''}
-                  style="white-space:nowrap">${weatherGeoLoading ? '查詢中…' : '確認'}</button>
+                  style="width:100%">${weatherGeoLoading ? '查詢中…' : '確認'}</button>
               </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:3px">請使用英文地名（如 Taipei、Tokyo）</div>
               ${weatherGeoError
                 ? `<div style="font-size:11px;color:#f87171;margin-top:4px">${escHtml(weatherGeoError)}</div>`
                 : state.settings.weatherGeo && !state.tripStartDate
@@ -2651,7 +2655,9 @@
     // ===== Layout C: Vertical Scroll =====
     function renderLayoutC() {
       const sections = state.days.map((day, i) => {
-        const dateStr = getDayDate(i);
+        const dateStr     = getDayDate(i);
+        const isoDate     = getDayIsoDate(i);
+        const weatherHtml = isoDate ? renderWeatherBadge(i, isoDate) : '';
         return `
           <div class="day-section">
             <div class="day-section-header">
@@ -2659,6 +2665,7 @@
               <input class="day-name-input" value="${escHtml(day.label)}"
                 data-action="day-name" data-day-id="${day.id}">
               ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
+              ${weatherHtml}
               <button class="btn-ghost" data-action="copy-day"
                 data-day-id="${day.id}" title="複製此天">⎘</button>
               ${renderDeleteDayBtn(day)}
