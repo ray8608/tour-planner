@@ -141,6 +141,7 @@
       padding: 4px 8px;
       font-size: 14px;
     }
+    .btn-icon[disabled] { opacity: 0.4; pointer-events: none; cursor: default; }
     .btn-accent {
       background: var(--accent-bg);
       color: var(--accent);
@@ -1111,6 +1112,9 @@
           const data = JSON.parse(e.target.result);
           if (!Array.isArray(data.days) || !data.settings) throw new Error();
           if (!confirm('匯入將覆蓋目前行程，確定嗎？')) return;
+          historyStack.undos.push(snapshotState());
+          if (historyStack.undos.length > MAX_HISTORY) historyStack.undos.shift();
+          historyStack.redos = [];
           setActiveTrip(migrateState(data));
           if (!state.days?.find(d => d.id === state.activeDayId)) {
             state.activeDayId = state.days?.[0]?.id ?? null;
@@ -1193,6 +1197,20 @@
       return localStorage.getItem(IMPORTED_DOC_KEY) || null;
     }
 
+    // ===== Undo / Redo =====
+    const MAX_HISTORY = 50;
+    const historyStack = { undos: [], redos: [] };
+
+    function snapshotState() {
+      return JSON.parse(JSON.stringify({
+        days: state.days,
+        routes: state.routes,
+        activeDayId: state.activeDayId,
+        tripName: state.tripName,
+        tripStartDate: state.tripStartDate,
+      }));
+    }
+
     // ===== App state =====
     let tripList = [];
     let activeTripIdx = 0;
@@ -1268,8 +1286,38 @@
       }
     }
 
-    function setState(updater) {
+    function setState(updater, { recordHistory = true } = {}) {
+      if (recordHistory) {
+        historyStack.undos.push(snapshotState());
+        if (historyStack.undos.length > MAX_HISTORY) historyStack.undos.shift();
+        historyStack.redos = [];
+      }
       updater(state);
+      if (!state.days.find(d => d.id === state.activeDayId)) {
+        state.activeDayId = state.days[0]?.id ?? null;
+      }
+      save();
+      render();
+    }
+
+    function undo() {
+      if (historyStack.undos.length === 0) return;
+      historyStack.redos.push(snapshotState());
+      const prev = historyStack.undos.pop();
+      Object.assign(state, prev);
+      if (!state.days.find(d => d.id === state.activeDayId)) {
+        state.activeDayId = state.days[0]?.id ?? null;
+      }
+      save();
+      render();
+    }
+
+    function redo() {
+      if (historyStack.redos.length === 0) return;
+      historyStack.undos.push(snapshotState());
+      if (historyStack.undos.length > MAX_HISTORY) historyStack.undos.shift();
+      const next = historyStack.redos.pop();
+      Object.assign(state, next);
       if (!state.days.find(d => d.id === state.activeDayId)) {
         state.activeDayId = state.days[0]?.id ?? null;
       }
@@ -1791,6 +1839,14 @@
               </div>
 
               <div class="help-section">
+                <div class="help-section-title">↩ 撤銷／重做</div>
+                <div class="help-item">• 按 <b>Ctrl+Z</b>（Mac：<b>Cmd+Z</b>）撤銷上一步操作；按 <b>Ctrl+Y</b>（Mac：<b>Cmd+Shift+Z</b>）重做</div>
+                <div class="help-item">• 頂部工具列的 <b>↩</b> 和 <b>↪</b> 按鈕與快捷鍵功能相同，灰色時表示無可撤銷／重做的操作</div>
+                <div class="help-item">• 撤銷歷史最多保留 50 步；重新整理頁面後歷史清空（localStorage 中的行程不受影響）</div>
+                <div class="help-item">• 在文字輸入框內按 Ctrl+Z 為瀏覽器原生文字撤銷，不觸發行程撤銷</div>
+              </div>
+
+              <div class="help-section">
                 <div class="help-section-title">⚙️ 設定</div>
                 <div class="help-item">• <b>版面配置</b>：A 頁籤式 / B 側邊欄 / C 垂直捲動</div>
                 <div class="help-item">• <b>主題</b>：🌙 Dark / ☀️ Light / ⚡ Cyber（賽博龐克）/ 🧈 Cream（現代奶油，預設）</div>
@@ -1844,6 +1900,12 @@
             </div>
             <button class="btn" data-action="open-share">☁️ 共用</button>
             <button class="btn" data-action="open-help">❓ 說明</button>
+            <button class="btn-icon" data-action="undo"
+              title="撤銷 (Ctrl+Z)"
+              ${historyStack.undos.length === 0 ? 'disabled' : ''}>↩</button>
+            <button class="btn-icon" data-action="redo"
+              title="重做 (Ctrl+Y)"
+              ${historyStack.redos.length === 0 ? 'disabled' : ''}>↪</button>
             <button class="btn-icon" data-action="toggle-settings" title="設定">⚙️</button>
           </div>
         </header>`;
@@ -2267,6 +2329,8 @@
           return;
         }
 
+        if (action === 'undo') { undo(); return; }
+        if (action === 'redo') { redo(); return; }
         if (action === 'toggle-settings') { settingsOpen = !settingsOpen; render(); return; }
         if (action === 'close-settings')  { settingsOpen = false; render(); return; }
         if (action === 'toggle-local-menu') { localMenuOpen = !localMenuOpen; render(); return; }
@@ -2276,7 +2340,7 @@
         if (action === 'setting') {
           const SETTING_KEYS = ['layout', 'theme', 'defaultTransport', 'fontSize'];
           if (!SETTING_KEYS.includes(el.dataset.key)) return;
-          setState(s => { s.settings[el.dataset.key] = el.dataset.val; });
+          setState(s => { s.settings[el.dataset.key] = el.dataset.val; }, { recordHistory: false });
           return;
         }
 
@@ -2303,7 +2367,7 @@
         if (action === 'select-day') {
           const container = el.closest('[data-day-id]');
           if (!container) return;
-          setState(s => { s.activeDayId = container.dataset.dayId; });
+          setState(s => { s.activeDayId = container.dataset.dayId; }, { recordHistory: false });
           if (shareState.dayDropdownOpen) setShareState({ dayDropdownOpen: false });
           return;
         }
@@ -2614,6 +2678,20 @@
         document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
           .forEach(n => n.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
         touchDrag = null;
+      });
+
+      // --- Keyboard Shortcuts ---
+      document.addEventListener('keydown', e => {
+        const tag = document.activeElement?.tagName;
+        const isInput = tag === 'INPUT' || tag === 'TEXTAREA';
+        if (isInput) return;
+
+        const isMac = navigator.platform.startsWith('Mac');
+        const mod = isMac ? e.metaKey : e.ctrlKey;
+
+        if (mod && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
+        if (mod && e.key === 'y') { e.preventDefault(); redo(); }
+        if (mod && e.shiftKey && e.key === 'z') { e.preventDefault(); redo(); }
       });
     }
 
