@@ -832,6 +832,16 @@
     }
     .trip-list-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
     .trip-list-btn:hover { opacity: 0.8; }
+    .weather-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .weather-temp { font-weight: 500; color: var(--text); }
+    .weather-rain { color: #60a5fa; }
 
   </style>
 </head>
@@ -1014,6 +1024,144 @@
       d.setDate(d.getDate() + dayIndex);
       const w = ['日','一','二','三','四','五','六'];
       return `${d.getMonth()+1}/${d.getDate()}(${w[d.getDay()]})`;
+    }
+
+    function getDayIsoDate(dayIndex) {
+      if (!state.tripStartDate) return '';
+      const d = new Date(state.tripStartDate + 'T00:00:00');
+      d.setDate(d.getDate() + dayIndex);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ===== Weather (Open-Meteo) =====
+    const WEATHER_CACHE_KEY = 'weather-cache-v1';
+
+    function wmoToEmoji(code) {
+      if (code === null || code === undefined) return '';
+      if (code === 0)                                      return '☀️';
+      if (code === 1)                                      return '🌤️';
+      if (code === 2)                                      return '⛅';
+      if (code === 3)                                      return '☁️';
+      if ([45, 48].includes(code))                         return '🌫️';
+      if ([51,53,55,80,81,82].includes(code))              return '🌦️';
+      if ([56,57,61,63,65,66,67].includes(code))           return '🌧️';
+      if ([71,73,75,77,85,86].includes(code))              return '🌨️';
+      if ([95,96,99].includes(code))                       return '⛈️';
+      return '';
+    }
+
+    function loadWeatherCache() {
+      try { return JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)) || {}; }
+      catch (_) { return {}; }
+    }
+
+    function saveWeatherCache(cache) {
+      // Evict oldest entries when more than 10 cities cached
+      const keys = Object.keys(cache);
+      if (keys.length > 10) {
+        keys.sort((a, b) => (cache[a].forecastFetchedAt || 0) - (cache[b].forecastFetchedAt || 0));
+        delete cache[keys[0]];
+      }
+      localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cache));
+    }
+
+    function getCachedForecast(city, date) {
+      const cache = loadWeatherCache();
+      const key   = city.trim().toLowerCase();
+      const entry = cache[key];
+      if (!entry) return undefined;
+      if ((Date.now() - entry.forecastFetchedAt) > 3 * 60 * 60 * 1000) return undefined;
+      return (date in entry.forecast) ? entry.forecast[date] : undefined;
+    }
+
+    async function geocodeCity(cityName) {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
+      const res  = await fetch(url);
+      if (!res.ok) throw new Error('geocode network error');
+      const data = await res.json();
+      if (!data.results || !data.results.length) return null;
+      const r = data.results[0];
+      return { lat: r.latitude, lng: r.longitude, timezone: r.timezone, resolvedName: `${r.name}, ${r.country}` };
+    }
+
+    async function fetchForecast(lat, lng, timezone, startDate, endDate) {
+      const params = new URLSearchParams({
+        latitude:  lat,
+        longitude: lng,
+        daily:     'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode',
+        timezone,
+        start_date: startDate,
+        end_date:   endDate,
+      });
+      const res  = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+      if (!res.ok) throw new Error('forecast network error');
+      const data = await res.json();
+      const d    = data.daily;
+      const result = {};
+      d.time.forEach((date, i) => {
+        const tempMax    = d.temperature_2m_max[i];
+        const tempMin    = d.temperature_2m_min[i];
+        const precipProb = d.precipitation_probability_max[i];
+        const weathercode = d.weathercode[i];
+        result[date] = (tempMax === null && weathercode === null)
+          ? null
+          : { tempMax: Math.round(tempMax), tempMin: Math.round(tempMin), precipProb, weathercode };
+      });
+      return result;
+    }
+
+    let weatherFetchInFlight = false;
+
+    async function fetchWeatherIfNeeded() {
+      if (!state.tripStartDate || !state.settings.weatherGeo) return;
+      if (weatherFetchInFlight) return;
+      const { lat, lng, timezone } = state.settings.weatherGeo;
+      const city = state.settings.weatherCity.trim().toLowerCase();
+      const dates = state.days.map((_, i) => getDayIsoDate(i)).filter(Boolean);
+      if (!dates.length) return;
+      const startDate = dates[0];
+      const endDate   = dates[dates.length - 1];
+      const cache     = loadWeatherCache();
+      const entry     = cache[city];
+      const allCached = entry
+        && (Date.now() - entry.forecastFetchedAt) < 3 * 60 * 60 * 1000
+        && dates.every(d => d in entry.forecast);
+      if (allCached) return;
+      weatherFetchInFlight = true;
+      try {
+        const forecast = await fetchForecast(lat, lng, timezone, startDate, endDate);
+        const newEntry = {
+          ...(entry || { lat, lng, timezone, resolvedName: state.settings.weatherGeo.resolvedName, fetchedAt: Date.now() }),
+          forecast: { ...(entry?.forecast || {}), ...forecast },
+          forecastFetchedAt: Date.now(),
+        };
+        const newCache = { ...cache, [city]: newEntry };
+        saveWeatherCache(newCache);
+        render();
+      } catch (_) {
+        // Fail silently — retry on next render cycle
+      } finally {
+        weatherFetchInFlight = false;
+      }
+    }
+
+    function renderWeatherBadge(dayIndex, isoDate) {
+      if (!state.settings.weatherCity || !state.settings.weatherGeo) return '';
+      const city    = state.settings.weatherCity;
+      const cached  = getCachedForecast(city, isoDate);
+      if (cached === undefined) {
+        return `<span class="weather-badge"><span>⏳</span></span>`;
+      }
+      if (cached === null) return '';
+      const emoji = wmoToEmoji(cached.weathercode);
+      const rain  = cached.precipProb >= 20
+        ? `<span class="weather-rain">💧${cached.precipProb}%</span>`
+        : '';
+      return `<span class="weather-badge">
+        ${emoji ? `<span class="weather-icon">${emoji}</span>` : ''}
+        <span class="weather-temp">${cached.tempMax}°/${cached.tempMin}°</span>
+        ${rain}
+      </span>`;
     }
 
     // ===== Google Maps URLs =====
@@ -1316,7 +1464,7 @@
         tripName: '新旅程',
         tripStartDate: '',
         activeDayId: d.id,
-        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving', fontSize: 'normal' },
+        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving', fontSize: 'normal', weatherCity: '', weatherGeo: null },
         days: [d],
         routes: {}
       };
@@ -1357,6 +1505,8 @@
         const r = s.routes[k];
         if (typeof r.recordedTime !== 'number') r.recordedTime = 0;
       });
+      if (s.settings.weatherCity === undefined) s.settings.weatherCity = '';
+      if (s.settings.weatherGeo  === undefined) s.settings.weatherGeo  = null;
       return s;
     }
 
@@ -1425,6 +1575,8 @@
       tripList[activeTripIdx] = state;
     }
 
+    let weatherGeoLoading = false;
+    let weatherGeoError   = '';
     let settingsOpen = false;
     let helpOpen = false;
     let tripsOpen = false;
@@ -1757,13 +1909,16 @@
     }
 
     function renderDayHeader(day) {
-      const dayIndex = state.days.findIndex(d => d.id === day.id);
-      const dateStr  = getDayDate(dayIndex);
+      const dayIndex    = state.days.findIndex(d => d.id === day.id);
+      const dateStr     = getDayDate(dayIndex);
+      const isoDate     = getDayIsoDate(dayIndex);
+      const weatherHtml = isoDate ? renderWeatherBadge(dayIndex, isoDate) : '';
       return `
         <div class="day-content-header">
           <input class="day-name-input" value="${escHtml(day.label)}"
             data-action="day-name" data-day-id="${day.id}">
           ${dateStr ? `<span style="font-size:12px;color:var(--text-muted)">${escHtml(dateStr)}</span>` : ''}
+          ${weatherHtml}
           <button class="btn-ghost" data-action="copy-day"
             data-day-id="${day.id}" title="複製此天">⎘</button>
           ${renderDeleteDayBtn(day)}
@@ -1814,6 +1969,23 @@
                 ${tb('defaultTransport','transit','🚌 大眾')}
                 ${tb('defaultTransport','walking','🚶 步行')}
               </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-label">天氣城市</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input style="flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:13px;background:var(--input-bg);color:var(--text)"
+                  placeholder="Tokyo, 台北, Paris…"
+                  value="${escHtml(state.settings.weatherCity || '')}"
+                  data-action="weather-city-input">
+                <button class="btn-accent" data-action="confirm-weather-city"
+                  ${weatherGeoLoading ? 'disabled' : ''}
+                  style="white-space:nowrap">${weatherGeoLoading ? '查詢中…' : '確認'}</button>
+              </div>
+              ${weatherGeoError
+                ? `<div style="font-size:11px;color:#f87171;margin-top:4px">${escHtml(weatherGeoError)}</div>`
+                : state.settings.weatherGeo
+                  ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">✓ ${escHtml(state.settings.weatherGeo.resolvedName)}</div>`
+                  : ''}
             </div>
             ${(() => {
               const ts = computeTripStats();
@@ -2214,10 +2386,17 @@
       const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
       const items = state.days.map((d, i) => {
         const dateStr = getDayDate(i);
+        const isoDate = getDayIsoDate(i);
+        const wCache  = isoDate && state.settings.weatherCity && state.settings.weatherGeo
+          ? getCachedForecast(state.settings.weatherCity, isoDate)
+          : undefined;
+        const wSnippet = (wCache && wCache !== null)
+          ? ` <span style="font-size:10px;opacity:0.85">${wmoToEmoji(wCache.weathercode)} ${wCache.tempMax}°</span>`
+          : '';
         return `
           <button class="sidebar-day-btn ${d.id === active?.id ? 'active' : ''}"
             data-action="select-day" data-day-id="${d.id}"
-            style="${dateStr ? 'white-space:normal;line-height:1.4' : ''}">${escHtml(d.label)}${dateStr ? `<span style="display:block;font-size:10px;opacity:0.7">${escHtml(dateStr)}</span>` : ''}</button>
+            style="${dateStr ? 'white-space:normal;line-height:1.4' : ''}">${escHtml(d.label)}${dateStr ? `<span style="display:block;font-size:10px;opacity:0.7">${escHtml(dateStr)}${wSnippet}</span>` : ''}</button>
         `;
       }).join('');
       return `
@@ -2323,6 +2502,7 @@
         ${renderHelpOverlay()}
         ${renderTripsOverlay()}`;
       window.scrollTo(0, scrollY);
+      setTimeout(fetchWeatherIfNeeded, 0);
     }
 
     function init() {
@@ -2623,6 +2803,29 @@
           return;
         }
 
+        if (action === 'confirm-weather-city') {
+          const city = state.settings.weatherCity.trim();
+          if (!city) return;
+          weatherGeoLoading = true;
+          weatherGeoError   = '';
+          render();
+          geocodeCity(city).then(geo => {
+            weatherGeoLoading = false;
+            if (!geo) {
+              weatherGeoError = '找不到城市，請確認拼寫';
+              render();
+            } else {
+              weatherGeoError = '';
+              setState(s => { s.settings.weatherGeo = geo; });
+            }
+          }).catch(() => {
+            weatherGeoLoading = false;
+            weatherGeoError = '無法查詢城市，請稍後再試';
+            render();
+          });
+          return;
+        }
+
         if (action === 'toggle-day-dropdown') {
           setShareState({ dayDropdownOpen: !shareState.dayDropdownOpen });
           return;
@@ -2743,6 +2946,10 @@
         }
         if (action === 'upload-secret-code-input') {
           shareState.uploadSecretCode = e.target.value;
+          return;
+        }
+        if (action === 'weather-city-input') {
+          setState(s => { s.settings.weatherCity = e.target.value; });
           return;
         }
         // Direct save without re-render (keeps focus/cursor during typing)
