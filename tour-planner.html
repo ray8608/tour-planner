@@ -2166,9 +2166,11 @@
               </div>
               ${weatherGeoError
                 ? `<div style="font-size:11px;color:#f87171;margin-top:4px">${escHtml(weatherGeoError)}</div>`
-                : state.settings.weatherGeo
-                  ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">✓ ${escHtml(state.settings.weatherGeo.resolvedName)}</div>`
-                  : ''}
+                : state.settings.weatherGeo && !state.tripStartDate
+                  ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">✓ ${escHtml(state.settings.weatherGeo.resolvedName)}　<span style="color:#f87171">需設定旅程開始日期才能顯示天氣</span></div>`
+                  : state.settings.weatherGeo
+                    ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">✓ ${escHtml(state.settings.weatherGeo.resolvedName)}</div>`
+                    : ''}
             </div>
             ${(() => {
               const ts = computeTripStats();
@@ -2694,25 +2696,14 @@
 
     // ===== Render =====
     function renderMobileBottomBar() {
-      const { layout } = state.settings;
       const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
       const dayId = active?.id || (state.days[state.days.length - 1]?.id) || '';
-      const showDaySwitch = layout !== 'C';
       return `
         <div class="mobile-bottom-bar">
           <button class="mbb-btn" data-action="add-spot" data-day-id="${dayId}">
             <span class="mbb-icon">＋</span>
             <span class="mbb-label">景點</span>
           </button>
-          ${showDaySwitch
-            ? `<button class="mbb-btn" data-action="toggle-day-dropdown">
-                 <span class="mbb-icon">📅</span>
-                 <span class="mbb-label">切換天</span>
-               </button>`
-            : `<a class="mbb-btn" href="#day-${dayId}">
-                 <span class="mbb-icon">⬇</span>
-                 <span class="mbb-label">最後天</span>
-               </a>`}
           <button class="mbb-btn" data-action="add-day">
             <span class="mbb-icon">＋天</span>
             <span class="mbb-label">新增天</span>
@@ -3055,7 +3046,8 @@
         }
 
         if (action === 'confirm-weather-city') {
-          const city = state.settings.weatherCity.trim();
+          const cityInput = document.querySelector('[data-action="weather-city-input"]');
+          const city = (cityInput?.value || state.settings.weatherCity || '').trim();
           if (!city) return;
           weatherGeoLoading = true;
           weatherGeoError   = '';
@@ -3067,7 +3059,7 @@
               render();
             } else {
               weatherGeoError = '';
-              setState(s => { s.settings.weatherGeo = geo; });
+              setState(s => { s.settings.weatherCity = city; s.settings.weatherGeo = geo; }, { recordHistory: false });
             }
           }).catch(() => {
             weatherGeoLoading = false;
@@ -3208,7 +3200,8 @@
           return;
         }
         if (action === 'weather-city-input') {
-          setState(s => { s.settings.weatherCity = e.target.value; });
+          state.settings.weatherCity = e.target.value;
+          save();
           return;
         }
         // Direct save without re-render (keeps focus/cursor during typing)
