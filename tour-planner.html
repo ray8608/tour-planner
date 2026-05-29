@@ -2,7 +2,7 @@
 <html lang="zh-TW" data-theme="cream" data-layout="A" data-fontsize="normal">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>旅遊規劃工具</title>
   <style>
     /* ===== CSS Variables ===== */
@@ -581,7 +581,7 @@
       margin: 0 auto 2px;
     }
     .spot-row { display: flex; align-items: center; gap: 6px; }
-    .drag-handle { color: var(--text-muted); font-size: 14px; cursor: grab; padding: 0 2px; user-select: none; }
+    .drag-handle { color: var(--text-muted); font-size: 16px; cursor: grab; padding: 0 2px; user-select: none; }
     .spot-name {
       flex: 1;
       background: transparent;
@@ -724,9 +724,29 @@
       .day-content { padding: 10px 10px; }
       .layout-c-wrap { padding: 10px; }
       .timeline-left { width: 72px; min-width: 72px; padding-right: 6px; }
-      /* duration selects wrap to second line in spot card */
-      .spot-row { flex-wrap: wrap; row-gap: 4px; }
-      .spot-row .duration-group { order: 5; flex-basis: 100%; padding-left: 24px; }
+
+      /* drag-handle 擴大點擊區至約 44px 高，視覺不變 */
+      .drag-handle { padding: 10px 8px; margin: -10px -8px; font-size: 16px; }
+
+      /* spot-row 第一行：drag-handle + name input（name 盡量展開） */
+      /* spot-row 第二行：duration + 導航 + 刪除 */
+      .spot-row { flex-wrap: wrap; row-gap: 6px; }
+      /* 偽元素在 order:4 位置強制換行 */
+      .spot-row::after { content: ''; flex-basis: 100%; order: 4; }
+      /* 第一行：name input 佔滿剩餘空間 */
+      .spot-name { flex: 1; min-width: 0; order: 2; }
+      /* 第二行元素（order 5-7） */
+      .spot-row .duration-group { order: 5; flex: 0 0 auto; padding-left: 0; }
+      .spot-row .btn-accent      { order: 6; flex: 0 0 auto; font-size: 12px; padding: 3px 8px; }
+      .spot-row .btn-ghost       { order: 7; flex: 0 0 auto; opacity: 0.7; padding: 3px 6px; }
+
+      /* 新增景點按鈕更大的點擊區 */
+      .btn-add { padding: 12px 8px; font-size: 14px; }
+
+      /* Layout A day-tabs 橫向捲動 */
+      .day-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+      .day-tabs::-webkit-scrollbar { display: none; }
+
       /* route connector wraps on all mobile widths */
       .route-line { display: none; }
       .route-connector { flex-wrap: wrap; justify-content: flex-start; padding: 2px 4px; gap: 4px; }
@@ -790,7 +810,42 @@
     /* ===== Mobile (≤480px) ===== */
     @media (max-width: 480px) {
       .timeline-left { width: 64px; min-width: 64px; }
-      .time-badge { font-size: 10px; }
+      .time-badge { font-size: 11px; line-height: 1.4; }
+    }
+
+    /* ===== Mobile Bottom Bar ===== */
+    .mobile-bottom-bar { display: none; }
+
+    @media (max-width: 600px) {
+      .mobile-bottom-bar {
+        display: flex;
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        z-index: 80;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      .mbb-btn {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 4px;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 11px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        text-decoration: none;
+      }
+      .mbb-btn:active { background: var(--accent-bg); color: var(--accent); }
+      .mbb-icon { font-size: 18px; line-height: 1; }
+      .mbb-label { font-size: 10px; }
     }
 
     /* ===== Trip Date Input ===== */
@@ -2527,6 +2582,9 @@
           <button class="day-tab-add" data-action="add-day" title="新增天數">＋</button>
         </div>
         <div class="day-content">
+          <div class="day-switch-wrap" style="display:none">
+            ${shareState.dayDropdownOpen ? renderDayDropdown(active) : ''}
+          </div>
           ${active ? renderDayHeader(active) + renderDaySpots(active) : ''}
         </div>`;
     }
@@ -2635,6 +2693,33 @@
     }
 
     // ===== Render =====
+    function renderMobileBottomBar() {
+      const { layout } = state.settings;
+      const active = state.days.find(d => d.id === state.activeDayId) || state.days[0];
+      const dayId = active?.id || (state.days[state.days.length - 1]?.id) || '';
+      const showDaySwitch = layout !== 'C';
+      return `
+        <div class="mobile-bottom-bar">
+          <button class="mbb-btn" data-action="add-spot" data-day-id="${dayId}">
+            <span class="mbb-icon">＋</span>
+            <span class="mbb-label">景點</span>
+          </button>
+          ${showDaySwitch
+            ? `<button class="mbb-btn" data-action="toggle-day-dropdown">
+                 <span class="mbb-icon">📅</span>
+                 <span class="mbb-label">切換天</span>
+               </button>`
+            : `<a class="mbb-btn" href="#day-${dayId}">
+                 <span class="mbb-icon">⬇</span>
+                 <span class="mbb-label">最後天</span>
+               </a>`}
+          <button class="mbb-btn" data-action="add-day">
+            <span class="mbb-icon">＋天</span>
+            <span class="mbb-label">新增天</span>
+          </button>
+        </div>`;
+    }
+
     function render() {
       const scrollY = window.scrollY;
       applySettings(state.settings);
@@ -2651,7 +2736,8 @@
         </main>
         ${renderShareOverlay()}
         ${renderHelpOverlay()}
-        ${renderTripsOverlay()}`;
+        ${renderTripsOverlay()}
+        ${renderMobileBottomBar()}`;
       window.scrollTo(0, scrollY);
       setTimeout(fetchWeatherIfNeeded, 0);
     }
@@ -2661,6 +2747,18 @@
       attachEvents();
       if (FIREBASE_CONFIG.projectId) migrateExistingTrips().catch(() => {});
       handleImportParam();
+    }
+
+    function addSpotAndFocus(dayId) {
+      setState(s => {
+        const day = s.days.find(d => d.id === dayId);
+        if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '', category: null });
+      });
+      requestAnimationFrame(() => {
+        const cards = document.querySelectorAll(`.spot-card[data-day-id="${dayId}"]`);
+        const last = cards[cards.length - 1];
+        last?.querySelector('.spot-name')?.focus();
+      });
     }
 
     function attachEvents() {
@@ -3016,10 +3114,8 @@
 
         if (action === 'add-spot') {
           const dayId = el.dataset.dayId;
-          setState(s => {
-            const day = s.days.find(d => d.id === dayId);
-            if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '', category: null });
-          });
+          if (!dayId) return;
+          addSpotAndFocus(dayId);
           return;
         }
 
@@ -3088,6 +3184,16 @@
           copySpotToDay(spotId, fromDayId, toDayId);
           return;
         }
+      });
+
+      app.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        const input = e.target.closest('.spot-name');
+        if (!input) return;
+        e.preventDefault();
+        const dayId = input.dataset.dayId;
+        if (!dayId) return;
+        addSpotAndFocus(dayId);
       });
 
       // --- Input (sync without re-render) ---
@@ -3305,35 +3411,62 @@
       });
 
       // --- Touch Drag (mobile) ---
-      let touchDrag  = null;
-      let touchGhost = null;
+      let touchDrag       = null;
+      let touchGhost      = null;
+      let touchDragTimer  = null;
+      let touchStartData  = null;
 
       app.addEventListener('touchstart', e => {
         const handle = e.target.closest('.drag-handle');
         if (!handle) return;
         const card = handle.closest('.spot-card');
         if (!card) return;
-        e.preventDefault();
         const touch = e.touches[0];
         const rect  = card.getBoundingClientRect();
-        touchDrag = {
+        touchStartData = {
           spotId:    card.dataset.spotId,
           fromDayId: card.dataset.dayId,
           offsetX:   touch.clientX - rect.left,
-          offsetY:   touch.clientY - rect.top
+          offsetY:   touch.clientY - rect.top,
+          startX:    touch.clientX,
+          startY:    touch.clientY,
+          card,
+          rect
         };
-        touchGhost = card.cloneNode(true);
-        touchGhost.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.8;` +
-          `width:${rect.width}px;left:${touch.clientX - touchDrag.offsetX}px;` +
-          `top:${touch.clientY - touchDrag.offsetY}px;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
-        document.body.appendChild(touchGhost);
-        card.classList.add('dragging');
-      }, { passive: false });
+        touchDragTimer = setTimeout(() => {
+          if (!touchStartData) return;
+          const { card: c, rect: r, offsetX, offsetY, spotId, fromDayId } = touchStartData;
+          const t = touchStartData;
+          touchDrag = { spotId, fromDayId, offsetX, offsetY };
+          touchGhost = c.cloneNode(true);
+          touchGhost.style.cssText = `position:fixed;z-index:9999;pointer-events:none;opacity:0.8;` +
+            `width:${r.width}px;left:${t.startX - offsetX}px;` +
+            `top:${t.startY - offsetY}px;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
+          document.body.appendChild(touchGhost);
+          c.classList.add('dragging');
+          touchStartData = null;
+        }, 200);
+      }, { passive: true });
 
       app.addEventListener('touchmove', e => {
-        if (!touchDrag || !touchGhost) return;
-        e.preventDefault();
         const touch = e.touches[0];
+
+        if (!touchDrag) {
+          if (touchStartData && touchDragTimer) {
+            const dx = touch.clientX - touchStartData.startX;
+            const dy = touch.clientY - touchStartData.startY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+              clearTimeout(touchDragTimer);
+              touchDragTimer = null;
+              touchStartData = null;
+            }
+          }
+          return;
+        }
+
+        if (!touchGhost) return;
+        e.preventDefault();
+
         touchGhost.style.left = (touch.clientX - touchDrag.offsetX) + 'px';
         touchGhost.style.top  = (touch.clientY - touchDrag.offsetY) + 'px';
 
@@ -3350,6 +3483,9 @@
       }, { passive: false });
 
       function endTouchDrag(touch) {
+        if (touchDragTimer) { clearTimeout(touchDragTimer); touchDragTimer = null; }
+        touchStartData = null;
+
         if (!touchDrag) return;
         if (touchGhost) { touchGhost.remove(); touchGhost = null; }
         document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
@@ -3368,6 +3504,8 @@
 
       app.addEventListener('touchend',    e => endTouchDrag(e.changedTouches[0]));
       app.addEventListener('touchcancel', () => {
+        if (touchDragTimer) { clearTimeout(touchDragTimer); touchDragTimer = null; }
+        touchStartData = null;
         if (touchGhost) { touchGhost.remove(); touchGhost = null; }
         document.querySelectorAll('.dragging, .drag-over, .drag-over-zone')
           .forEach(n => n.classList.remove('dragging', 'drag-over', 'drag-over-zone'));
