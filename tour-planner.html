@@ -21,6 +21,13 @@
       --shadow:       none;
       --input-bg:     #0f172a;
       --color-success: #34d399;
+      --cat-sightseeing: #60a5fa;
+      --cat-food:        #f87171;
+      --cat-shopping:    #c084fc;
+      --cat-transit:     #94a3b8;
+      --cat-hotel:       #34d399;
+      --cat-activity:    #fb923c;
+      --cat-other:       #64748b;
       color-scheme: dark;
     }
     [data-theme="light"] {
@@ -38,6 +45,13 @@
       --shadow:       0 1px 3px rgba(0,0,0,0.08);
       --input-bg:     #f8fafc;
       --color-success: #16a34a;
+      --cat-sightseeing: #2563eb;
+      --cat-food:        #dc2626;
+      --cat-shopping:    #9333ea;
+      --cat-transit:     #64748b;
+      --cat-hotel:       #16a34a;
+      --cat-activity:    #ea580c;
+      --cat-other:       #94a3b8;
       color-scheme: light;
     }
     [data-theme="cyberpunk"] {
@@ -55,6 +69,13 @@
       --shadow:       none;
       --input-bg:     #060610;
       --color-success: #00ff88;
+      --cat-sightseeing: #00d4ff;
+      --cat-food:        #ff2d9b;
+      --cat-shopping:    #c87cff;
+      --cat-transit:     #3a5a7a;
+      --cat-hotel:       #00ff88;
+      --cat-activity:    #ffaa00;
+      --cat-other:       #1a2050;
       color-scheme: dark;
     }
     [data-theme="cyberpunk"] .time-badge { color: #ff2d9b; }
@@ -73,6 +94,13 @@
       --shadow:       0 1px 4px rgba(160,100,40,0.08);
       --input-bg:     #fdf6ee;
       --color-success: #5a9a60;
+      --cat-sightseeing: #8a6020;
+      --cat-food:        #c04030;
+      --cat-shopping:    #8050b0;
+      --cat-transit:     #9a7a60;
+      --cat-hotel:       #5a9a60;
+      --cat-activity:    #b05010;
+      --cat-other:       #c0a080;
       color-scheme: light;
     }
     [data-theme="cream"] .time-badge { color: #5c7a4a; }
@@ -402,8 +430,9 @@
       width: 96px;
       min-width: 96px;
       display: flex;
-      align-items: center;
-      justify-content: flex-end;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
       padding-right: 8px;
       flex-shrink: 0;
     }
@@ -457,12 +486,73 @@
     .spot-card {
       background: var(--surface);
       border-radius: 6px;
-      padding: 10px 12px;
+      padding: 10px 12px 10px 15px;
       border: 1px solid transparent;
       box-shadow: var(--shadow);
+      position: relative;
     }
     .spot-card.drag-over { border-color: var(--accent); background: var(--accent-bg); }
     .spot-card.dragging { opacity: 0.35; }
+    .spot-cat-bar {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 6px 0 0 6px;
+      background: transparent;
+    }
+    .spot-cat-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 2px;
+      opacity: 0.6;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .spot-cat-btn:hover { opacity: 1; }
+    .spot-cat-picker {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      z-index: 50;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      width: 228px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .spot-cat-option {
+      width: 52px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+      border: 1px solid transparent;
+      background: none;
+      cursor: pointer;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .spot-cat-option:hover { border-color: var(--accent-bd); background: var(--accent-bg); }
+    .spot-cat-option.active { border-color: var(--accent-bd); background: var(--accent-bg); font-weight: 600; }
+    .spot-cat-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 49;
+      background: transparent;
+    }
+    .cat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: block;
+      margin: 0 auto 2px;
+    }
     .spot-row { display: flex; align-items: center; gap: 6px; }
     .drag-handle { color: var(--text-muted); font-size: 14px; cursor: grab; padding: 0 2px; user-select: none; }
     .spot-name {
@@ -1143,6 +1233,24 @@
       };
     }
 
+    // ===== Spot Categories =====
+    const SPOT_CATEGORIES = [
+      { id: 'sightseeing', label: '景點',     emoji: '🏛' },
+      { id: 'food',        label: '餐廳',     emoji: '🍽' },
+      { id: 'shopping',    label: '購物',     emoji: '🛍' },
+      { id: 'transit',     label: '交通樞紐', emoji: '🚉' },
+      { id: 'hotel',       label: '住宿',     emoji: '🏨' },
+      { id: 'activity',    label: '體驗活動', emoji: '🎯' },
+      { id: 'other',       label: '其他',     emoji: '📌' },
+    ];
+
+    function getCatColor(categoryId) {
+      if (!categoryId) return null;
+      return getComputedStyle(document.documentElement)
+        .getPropertyValue(`--cat-${categoryId}`)
+        .trim() || null;
+    }
+
     function migrateState(s) {
       if (!s.routes) s.routes = {};
       if (!s.tripStartDate) s.tripStartDate = '';
@@ -1153,6 +1261,7 @@
         delete day.hotelName;
         day.spots.forEach(spot => {
           if (typeof spot.stayDuration !== 'number') spot.stayDuration = 0;
+          if (spot.category === undefined) spot.category = null;
         });
       });
       Object.keys(s.routes).forEach(k => {
@@ -1252,6 +1361,7 @@
       manageView: 'main',
       manageError: null,
       dayDropdownOpen: false,
+      catPickerOpenSpotId: null,
     };
 
     function setShareState(updates) {
@@ -1372,6 +1482,23 @@
     }
 
     // ===== Spot Card =====
+    function renderCatPicker(spot) {
+      const opts = SPOT_CATEGORIES.map(c => {
+        const isActive = spot.category === c.id;
+        return `<button class="spot-cat-option${isActive ? ' active' : ''}"
+          data-action="set-cat" data-spot-id="${spot.id}" data-cat="${c.id}"
+          title="${c.label}">${c.emoji}<br><span style="font-size:10px">${c.label}</span></button>`;
+      }).join('');
+      return `
+        <div class="spot-cat-backdrop" data-action="close-cat-picker"></div>
+        <div class="spot-cat-picker">
+          ${opts}
+          <button class="spot-cat-option" data-action="set-cat"
+            data-spot-id="${spot.id}" data-cat=""
+            title="清除分類">╳<br><span style="font-size:10px">清除</span></button>
+        </div>`;
+    }
+
     function renderSpotCard(spot, dayId, slot) {
       const hasName  = spot.name.trim() !== '';
       const navUrl   = hasName ? mapsNavUrl(spot.name) : '#';
@@ -1382,15 +1509,28 @@
       const dAttrs  = `data-spot-id="${spot.id}" data-day-id="${dayId}"`;
       const stayHtml = renderDurationSelects(spot.stayDuration, 'spot-dur-h', 'spot-dur-m', dAttrs);
 
+      const catColor = getCatColor(spot.category);
+      const catBarStyle = catColor ? `style="background:${catColor}"` : '';
+      const cat = spot.category ? SPOT_CATEGORIES.find(c => c.id === spot.category) : null;
+      const catBtnEmoji = cat ? cat.emoji : '⊙';
+      const catBtnStyle = catColor ? `style="color:${catColor};opacity:1"` : '';
+      const pickerOpen = shareState.catPickerOpenSpotId === spot.id;
+
       return `
         <div class="timeline-row">
           <div class="timeline-left">
+            ${catColor && badge ? `<span class="cat-dot" style="background:${catColor}"></span>` : ''}
             ${badge ? `<span class="time-badge">${escHtml(badge)}</span>` : ''}
           </div>
-          <div class="timeline-right">
+          <div class="timeline-right" style="position:relative">
             <div class="spot-card" data-spot-id="${spot.id}" data-day-id="${dayId}" draggable="true">
+              <span class="spot-cat-bar" ${catBarStyle}></span>
               <div class="spot-row">
                 <span class="drag-handle" title="拖拉排序">⠿</span>
+                <button class="spot-cat-btn" ${catBtnStyle}
+                  data-action="open-cat-picker"
+                  data-spot-id="${spot.id}" data-day-id="${dayId}"
+                  title="選擇分類">${catBtnEmoji}</button>
                 <input class="spot-name" value="${escHtml(spot.name)}" placeholder="景點名稱"
                   data-action="spot-name" data-spot-id="${spot.id}" data-day-id="${dayId}">
                 ${stayHtml}
@@ -1401,6 +1541,7 @@
               <input class="spot-notes" value="${escHtml(spot.notes)}" placeholder="備註（選填）"
                 data-action="spot-notes" data-spot-id="${spot.id}" data-day-id="${dayId}">
             </div>
+            ${pickerOpen ? renderCatPicker(spot) : ''}
           </div>
         </div>`;
     }
@@ -1802,6 +1943,7 @@
                 <div class="help-item">• 點 <b>📋 行程</b> 可<b>新增、切換、刪除</b>多個旅行計畫，各自獨立儲存</div>
                 <div class="help-item">• 點 <b>＋ 新增天數</b> 增加天數；點天數標籤可切換；長按標籤名稱可重新命名</div>
                 <div class="help-item">• 點 <b>＋ 新增景點</b> 在當天加入景點，可設定名稱、停留時間、備注</div>
+                <div class="help-item">• 點景點左側的 <b>⊙ 圖示</b> 可選擇分類（🏛 景點、🍽 餐廳、🛍 購物…），分類顏色顯示於卡片左側色條與時間軸圓點</div>
                 <div class="help-item">• 景點之間可設定<b>交通方式</b>與<b>交通時間</b>，時間軸會自動計算每個景點的抵達與離開時間</div>
                 <div class="help-item">• 拖曳景點卡片左側的 ⠿ 可<b>調整順序</b></div>
                 <div class="help-item">• 每天可設定<b>出發地</b>（飯店/民宿名稱）與<b>目的地</b>（當晚住宿）</div>
@@ -2383,8 +2525,32 @@
           const dayId = el.dataset.dayId;
           setState(s => {
             const day = s.days.find(d => d.id === dayId);
-            if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '' });
+            if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '', category: null });
           });
+          return;
+        }
+
+        if (action === 'open-cat-picker') {
+          const spotId = el.dataset.spotId;
+          setShareState({ catPickerOpenSpotId: shareState.catPickerOpenSpotId === spotId ? null : spotId });
+          return;
+        }
+
+        if (action === 'close-cat-picker') {
+          setShareState({ catPickerOpenSpotId: null });
+          return;
+        }
+
+        if (action === 'set-cat') {
+          const spotId = el.dataset.spotId;
+          const catId = el.dataset.cat || null;
+          setState(s => {
+            for (const day of s.days) {
+              const spot = day.spots.find(sp => sp.id === spotId);
+              if (spot) { spot.category = catId; break; }
+            }
+          });
+          setShareState({ catPickerOpenSpotId: null });
           return;
         }
 
