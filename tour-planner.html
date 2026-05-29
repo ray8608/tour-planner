@@ -832,6 +832,57 @@
     }
     .trip-list-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bd); }
     .trip-list-btn:hover { opacity: 0.8; }
+
+    /* ===== Print ===== */
+    #print-header { display: none; }
+
+    @media print {
+      /* Show print header */
+      #print-header {
+        display: block;
+        text-align: center;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #333;
+      }
+      .print-trip-name { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+      .print-trip-date { font-size: 13px; color: #555; margin: 0; }
+
+      /* Hide UI chrome */
+      .app-header          { display: none; }
+      .settings-panel      { display: none; }
+      .day-tabs            { display: none; }
+      .day-sidebar         { display: none; }
+      .day-switch-wrap     { display: none; }
+      .share-overlay       { display: none; }
+      .help-overlay        { display: none; }
+      .trips-overlay       { display: none; }
+      .btn-add             { display: none; }
+      .drag-handle         { display: none; }
+      .duration-group      { display: none; }
+      .day-header .btn-ghost   { display: none; }
+      .spot-card  .btn-accent  { display: none; }
+      .spot-card  .btn-ghost   { display: none; }
+      .route-connector a       { display: none; }
+      .route-connector select  { display: none; }
+      .route-connector .duration-group { display: none; }
+
+      /* Layout adjustments */
+      .layout-b-wrap { display: block; }
+      .day-content   { width: 100%; }
+
+      /* Page breaks */
+      .day-section        { page-break-inside: avoid; }
+      .spot-card          { page-break-inside: avoid; }
+      .day-section-header { page-break-after: avoid; }
+
+      /* Colour reset */
+      * { color: #000 !important; background: #fff !important; }
+      .time-badge { color: #333 !important; font-weight: 600; }
+      .route-connector .route-line { border-color: #aaa !important; }
+      a { text-decoration: none !important; }
+    }
+
     .weather-badge {
       display: inline-flex;
       align-items: center;
@@ -1428,6 +1479,83 @@
       const a    = document.createElement('a');
       a.href     = url;
       a.download = `${state.tripName}-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+
+    function exportICS() {
+      function icsEsc(s) {
+        return (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;')
+                        .replace(/,/g, '\\,').replace(/\n/g, '\\n');
+      }
+
+      function toICSDate(dateStr, timeHHMM) {
+        // dateStr: 'YYYY-MM-DD', timeHHMM: 'HH:MM' or null
+        const d = dateStr.replace(/-/g, '');
+        if (!timeHHMM) return `${d}`;
+        const t = timeHHMM.replace(':', '') + '00';
+        return `${d}T${t}`;
+      }
+
+      function getDayDateStr(dayIndex) {
+        if (!state.tripStartDate) return null;
+        const base = new Date(state.tripStartDate);
+        base.setDate(base.getDate() + dayIndex);
+        return base.toISOString().slice(0, 10);
+      }
+
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        `PRODID:-//Tour Planner//ZH`,
+        'CALSCALE:GREGORIAN',
+        `X-WR-CALNAME:${icsEsc(state.tripName)}`,
+      ];
+
+      state.days.forEach((day, dayIdx) => {
+        const dateStr = getDayDateStr(dayIdx);
+        const slots = computeTimeline(day);
+
+        day.spots.forEach(spot => {
+          if (!spot.name.trim()) return;
+          const sl = slots[spot.id];
+          const hasTime = sl?.start && dateStr;
+
+          lines.push('BEGIN:VEVENT');
+          lines.push(`UID:${spot.id}@tour-planner`);
+          lines.push(`SUMMARY:${icsEsc(spot.name)}`);
+
+          if (hasTime) {
+            lines.push(`DTSTART:${toICSDate(dateStr, sl.start)}`);
+            lines.push(`DTEND:${toICSDate(dateStr, sl.end || sl.start)}`);
+          } else if (dateStr) {
+            const nextDate = new Date(dateStr);
+            nextDate.setDate(nextDate.getDate() + 1);
+            const nextDateStr = nextDate.toISOString().slice(0, 10).replace(/-/g, '');
+            lines.push(`DTSTART;VALUE=DATE:${dateStr.replace(/-/g, '')}`);
+            lines.push(`DTEND;VALUE=DATE:${nextDateStr}`);
+          } else {
+            // no date at all — skip this event
+            lines.pop(); // remove SUMMARY
+            lines.pop(); // remove UID
+            lines.pop(); // remove BEGIN:VEVENT
+            return;
+          }
+
+          lines.push(`LOCATION:${icsEsc(spot.name)}`);
+          if (spot.notes?.trim()) lines.push(`DESCRIPTION:${icsEsc(spot.notes)}`);
+          lines.push('END:VEVENT');
+        });
+      });
+
+      lines.push('END:VCALENDAR');
+
+      const content = lines.join('\r\n') + '\r\n';
+      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${state.tripName}-${new Date().toISOString().slice(0,10)}.ics`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 100);
     }
@@ -2261,6 +2389,8 @@
                 <div class="help-item">• 點 <b>💾 本地 ▾</b> 展開選單，可選擇 <b>📤 匯出 JSON</b> 或 <b>📥 匯入 JSON</b></div>
                 <div class="help-item">• <b>匯出</b>：將目前行程儲存為 .json 檔案，可作為備份</div>
                 <div class="help-item">• <b>匯入</b>：選擇之前匯出的 .json 檔案還原行程（會覆蓋目前行程）</div>
+                <div class="help-item">• <b>列印 / PDF</b>：開啟瀏覽器列印對話框，可選「另存為 PDF」；建議先切換至 <b>Layout C（垂直捲動）</b>再列印，以一次輸出全部天數</div>
+                <div class="help-item">• <b>匯出行事曆 (.ics)</b>：下載 .ics 檔案，可匯入 Google 日曆、Apple 行事曆等；需先設定<b>旅行開始日期</b>才能包含正確日期</div>
               </div>
 
               <div class="help-section">
@@ -2323,6 +2453,15 @@
         </div>`;
     }
 
+    function renderPrintHeader() {
+      return `<div id="print-header">
+        <h1 class="print-trip-name">${escHtml(state.tripName)}</h1>
+        ${state.tripStartDate
+          ? `<p class="print-trip-date">${escHtml(state.tripStartDate)} 出發</p>`
+          : ''}
+      </div>`;
+    }
+
     function renderHeader() {
       return `
         <header class="app-header">
@@ -2339,12 +2478,23 @@
               <button class="btn" data-action="toggle-local-menu">💾 本地 ▾</button>
               ${localMenuOpen ? `
                 <div data-action="close-local-menu" style="position:fixed;inset:0;z-index:99"></div>
-                <div style="position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:130px;box-shadow:0 4px 12px rgba(0,0,0,0.25);z-index:100;overflow:hidden">
+                <div style="position:absolute;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.25);z-index:100;overflow:hidden">
                   <button data-action="export-json" style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">📤 匯出 JSON</button>
                   <label style="display:block;cursor:pointer;padding:8px 12px;color:var(--text);font-size:13px">
                     📥 匯入 JSON
                     <input type="file" accept=".json" data-action="import-json" style="display:none">
                   </label>
+                  <hr style="border:none;border-top:1px solid var(--border);margin:2px 0">
+                  <button data-action="print-trip"
+                    style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                           color:var(--text);font-size:13px;cursor:pointer">
+                    🖨 列印 / PDF
+                  </button>
+                  <button data-action="export-ics"
+                    style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                           border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">
+                    📅 匯出行事曆 (.ics)
+                  </button>
                 </div>` : ''}
             </div>
             <button class="btn" data-action="open-share">☁️ 共用</button>
@@ -2493,6 +2643,7 @@
         : layout === 'C' ? renderLayoutC()
         : renderLayoutA();
       document.getElementById('app').innerHTML = `
+        ${renderPrintHeader()}
         ${renderHeader()}
         ${renderSettingsPanel()}
         <main id="main-area" style="flex:1;display:flex;flex-direction:column">
@@ -2795,6 +2946,8 @@
         if (action === 'toggle-local-menu') { localMenuOpen = !localMenuOpen; render(); return; }
         if (action === 'close-local-menu')  { localMenuOpen = false; render(); return; }
         if (action === 'export-json')     { localMenuOpen = false; exportJSON(); return; }
+        if (action === 'print-trip')      { localMenuOpen = false; render(); window.print(); return; }
+        if (action === 'export-ics')      { localMenuOpen = false; render(); exportICS(); return; }
 
         if (action === 'setting') {
           const SETTING_KEYS = ['layout', 'theme', 'defaultTransport', 'fontSize'];
