@@ -3013,15 +3013,43 @@
       } catch { return null; }
     }
 
+    let mapsApiPromise = null;
+    let mapsApiLoadedKey = null;
+
+    function loadGoogleMapsAPI(key) {
+      if (mapsApiPromise && mapsApiLoadedKey === key) return mapsApiPromise;
+      mapsApiPromise = new Promise((resolve, reject) => {
+        // 移除舊的 maps script（如果有的話）
+        document.querySelectorAll('script[data-maps-api]').forEach(s => s.remove());
+        delete window.google;
+        const script = document.createElement('script');
+        script.dataset.mapsApi = '';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = () => { mapsApiPromise = null; mapsApiLoadedKey = null; reject(new Error('Failed to load Google Maps API')); };
+        document.head.appendChild(script);
+        mapsApiLoadedKey = key;
+      });
+      return mapsApiPromise;
+    }
+
     async function googleMapsRoute(fromName, toName, mode, key) {
-      const params = new URLSearchParams({ origin: fromName, destination: toName, mode, key });
-      const url = `https://maps.googleapis.com/maps/api/directions/json?${params}`;
       try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data.status !== 'OK' || !data.routes?.length) return null;
-        return data.routes[0].legs[0].duration.value; // seconds
+        await loadGoogleMapsAPI(key);
+        const service = new google.maps.DirectionsService();
+        return await new Promise(resolve => {
+          service.route(
+            { origin: fromName, destination: toName, travelMode: mode.toUpperCase() },
+            (response, status) => {
+              if (status === 'OK' && response.routes?.[0]?.legs?.[0]?.duration?.value) {
+                resolve(response.routes[0].legs[0].duration.value);
+              } else {
+                resolve(null);
+              }
+            }
+          );
+        });
       } catch { return null; }
     }
 
