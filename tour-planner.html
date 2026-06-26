@@ -3115,6 +3115,9 @@
               render();
             } else {
               weatherGeoError = '';
+              const cityKey = city.trim().toLowerCase();
+              const cache = loadWeatherCache();
+              if (cache[cityKey]) { cache[cityKey].forecastFetchedAt = 0; saveWeatherCache(cache); }
               setState(s => { s.settings.weatherCity = city; s.settings.weatherGeo = geo; }, { recordHistory: false });
             }
           }).catch(() => {
