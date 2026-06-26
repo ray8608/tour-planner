@@ -2960,7 +2960,7 @@
         if (day.spots.length === 0) return;
         const fromNodes = [
           { id: hotelStartId(day.id), name: day.startHotelName || '' },
-          ...day.spots.slice(0, -1)
+          ...day.spots
         ];
         const toNodes = [
           ...day.spots,
@@ -2999,7 +2999,11 @@
     // from, to: { lat, lng }; profile: 'driving' | 'foot'
     async function osrmRoute(from, to, profile) {
       const coords = `${from.lng},${from.lat};${to.lng},${to.lat}`;
-      const url = `https://router.project-osrm.org/route/v1/${profile}/${coords}?overview=false`;
+      // router.project-osrm.org only supports driving; use routing.openstreetmap.de for foot
+      const base = profile === 'foot'
+        ? 'https://routing.openstreetmap.de/routed-foot'
+        : 'https://router.project-osrm.org';
+      const url = `${base}/route/v1/${profile}/${coords}?overview=false`;
       try {
         const res = await fetch(url);
         if (!res.ok) return null;
