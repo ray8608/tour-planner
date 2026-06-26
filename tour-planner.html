@@ -1208,14 +1208,15 @@
       return 'best_match';
     }
 
-    async function fetchForecast(lat, lng, timezone, startDate, endDate) {
+    async function fetchForecast(lat, lng, timezone, startDate, endDate, model) {
       const params = new URLSearchParams({
-        latitude:  lat,
-        longitude: lng,
-        daily:     'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode',
+        latitude:   lat,
+        longitude:  lng,
+        daily:      'temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code',
         timezone,
         start_date: startDate,
         end_date:   endDate,
+        models:     model || 'best_match',
       });
       const res  = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
       if (!res.ok) throw new Error('forecast network error');
@@ -1226,10 +1227,11 @@
         const tempMax    = d.temperature_2m_max[i];
         const tempMin    = d.temperature_2m_min[i];
         const precipProb = d.precipitation_probability_max[i];
-        const weathercode = d.weathercode[i];
-        result[date] = (tempMax === null && weathercode === null)
+        const precipSum  = d.precipitation_sum[i];
+        const weatherCode = d.weather_code[i];
+        result[date] = (tempMax === null && weatherCode === null)
           ? null
-          : { tempMax: Math.round(tempMax), tempMin: Math.round(tempMin), precipProb, weathercode };
+          : { tempMax: Math.round(tempMax), tempMin: Math.round(tempMin), precipProb, precipSum, weatherCode };
       });
       return result;
     }
