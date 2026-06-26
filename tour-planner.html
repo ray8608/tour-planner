@@ -2978,6 +2978,70 @@
       } catch { return null; }
     }
 
+    // opts: { bufferMins: number, overwrite: boolean }
+    async function autoFillCommuteTime(segments, opts) {
+      const { bufferMins, overwrite } = opts;
+      const key = state.settings.googleMapsApiKey;
+      const hasKey = key && key !== 'NONE';
+      const osrmProfile = { driving: 'driving', walking: 'foot', transit: 'driving' };
+      const delay = ms => new Promise(r => setTimeout(r, ms));
+
+      let success = 0, skipped = 0, failed = 0;
+      const skippedTransitKeys = [];
+      const updates = {};
+
+      for (const seg of segments) {
+        const { rk, fromName, toName, transport, hasTime } = seg;
+
+        if (!overwrite && hasTime) { skipped++; continue; }
+        if (transport === 'transit' && !hasKey) {
+          skipped++;
+          skippedTransitKeys.push(rk);
+          continue;
+        }
+        if (!fromName.trim() || !toName.trim()) { skipped++; continue; }
+
+        let secs = null;
+
+        if (hasKey) {
+          secs = await googleMapsRoute(fromName, toName, transport, key);
+        } else {
+          const fromGeo = await nominatimGeocode(fromName);
+          await delay(1100);
+          if (!fromGeo) { failed++; continue; }
+          const toGeo = await nominatimGeocode(toName);
+          await delay(1100);
+          if (!toGeo) { failed++; continue; }
+          const profile = osrmProfile[transport] || 'driving';
+          secs = await osrmRoute(fromGeo, toGeo, profile);
+        }
+
+        if (secs !== null) {
+          updates[rk] = Math.ceil(secs / 60) + bufferMins;
+          success++;
+        } else {
+          failed++;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setState(s => {
+          Object.entries(updates).forEach(([rk, mins]) => {
+            if (!s.routes[rk]) s.routes[rk] = { transport: state.settings.defaultTransport };
+            s.routes[rk].recordedTime = mins;
+          });
+        });
+      }
+
+      let msg = `通勤時間填入完成：成功 ${success} 條`;
+      if (skipped > 0) {
+        const transitMsg = skippedTransitKeys.length > 0 ? `（含 ${skippedTransitKeys.length} 條大眾運輸需 key）` : '';
+        msg += `、略過 ${skipped} 條${transitMsg}`;
+      }
+      if (failed > 0) msg += `、失敗 ${failed} 條（找不到地點）`;
+      showToast(msg, failed > 0 ? 'warn' : 'ok');
+    }
+
     // ===== Toast =====
     function showToast(msg, type = 'ok') {
       const existing = document.getElementById('app-toast');
