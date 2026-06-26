@@ -1674,7 +1674,7 @@
         tripName: '新旅程',
         tripStartDate: '',
         activeDayId: d.id,
-        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving', fontSize: 'normal', weatherCity: '', weatherGeo: null },
+        settings: { layout: 'A', theme: 'cream', defaultTransport: 'driving', fontSize: 'normal', weatherCity: '', weatherGeo: null, weatherModel: null },
         days: [d],
         routes: {}
       };
@@ -1715,8 +1715,9 @@
         const r = s.routes[k];
         if (typeof r.recordedTime !== 'number') r.recordedTime = 0;
       });
-      if (s.settings.weatherCity === undefined) s.settings.weatherCity = '';
-      if (s.settings.weatherGeo  === undefined) s.settings.weatherGeo  = null;
+      if (s.settings.weatherCity  === undefined) s.settings.weatherCity  = '';
+      if (s.settings.weatherGeo   === undefined) s.settings.weatherGeo   = null;
+      if (s.settings.weatherModel === undefined) s.settings.weatherModel = null;
       return s;
     }
 
