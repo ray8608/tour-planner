@@ -2909,6 +2909,75 @@
       setTimeout(fetchWeatherIfNeeded, 0);
     }
 
+    // ===== Auto-fill Commute: helpers =====
+    function collectRouteSegments(days) {
+      const dayList = Array.isArray(days) ? days : [days];
+      const segments = [];
+      dayList.forEach(day => {
+        if (day.spots.length === 0) return;
+        const fromNodes = [
+          { id: hotelStartId(day.id), name: day.startHotelName || '' },
+          ...day.spots.slice(0, -1)
+        ];
+        const toNodes = [
+          ...day.spots,
+          { id: hotelEndId(day.id), name: day.endHotelName || '' }
+        ];
+        fromNodes.forEach((from, i) => {
+          const to = toNodes[i];
+          const rk = routeKey(from.id, to.id);
+          const route = state.routes[rk] || {};
+          const transport = route.transport || state.settings.defaultTransport;
+          segments.push({
+            rk,
+            fromName: from.name || '',
+            toName: to.name || '',
+            transport,
+            hasTime: (route.recordedTime || 0) > 0
+          });
+        });
+      });
+      return segments;
+    }
+
+    async function nominatimGeocode(name) {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`;
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'tour-planner', 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data.length) return null;
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      } catch { return null; }
+    }
+
+    // from, to: { lat, lng }; profile: 'driving' | 'foot'
+    async function osrmRoute(from, to, profile) {
+      const coords = `${from.lng},${from.lat};${to.lng},${to.lat}`;
+      const url = `https://router.project-osrm.org/route/v1/${profile}/${coords}?overview=false`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.code !== 'Ok' || !data.routes?.length) return null;
+        return data.routes[0].duration; // seconds
+      } catch { return null; }
+    }
+
+    async function googleMapsRoute(fromName, toName, mode, key) {
+      const params = new URLSearchParams({ origin: fromName, destination: toName, mode, key });
+      const url = `https://maps.googleapis.com/maps/api/directions/json?${params}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.status !== 'OK' || !data.routes?.length) return null;
+        return data.routes[0].legs[0].duration.value; // seconds
+      } catch { return null; }
+    }
+
     // ===== Toast =====
     function showToast(msg, type = 'ok') {
       const existing = document.getElementById('app-toast');
