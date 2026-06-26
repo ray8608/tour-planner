@@ -1522,7 +1522,7 @@
       const hasVal = mins > 0;
       const cls = `duration-select${hasVal ? ' has-value' : ''}`;
       const minOpts = [0,5,10,15,20,25,30,35,40,45,50,55];
-      const mMatched = minOpts.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a);
+      const mMatched = minOpts.find(v => v >= m) ?? minOpts[minOpts.length - 1];
       const maxH = Math.max(12, h);
       const hourOpts = Array.from({length: maxH + 1}, (_, i) =>
         `<option value="${i}"${i === h ? ' selected' : ''}>${i}小時</option>`).join('');
