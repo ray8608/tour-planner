@@ -2120,7 +2120,6 @@
       const route     = state.routes[rk] || {};
       const transport = route.transport || state.settings.defaultTransport;
       const travelMins = route.recordedTime || 0;
-      console.log('[DEBUG] renderRouteConnector', rk, 'travelMins =', travelMins, 'routeExists:', !!state.routes[rk]);
       const slot      = slots ? slots[rk] : null;
       const badge     = formatTimeBadge(slot);
       const mapsUrl   = mapsDirectionsUrl(
@@ -3099,20 +3098,16 @@
       }
 
       if (Object.keys(updates).length > 0) {
-        console.log('[DEBUG] updates before setState:', JSON.stringify(updates));
-        console.log('[DEBUG] routes keys BEFORE setState:', Object.keys(state.routes).join(', '));
+        console.log('[DEBUG] updates:', Object.keys(updates).length, 'routes →', Object.entries(updates).map(([k, v]) => k + '=' + v + 'min').join(', '));
         setState(s => {
           Object.entries(updates).forEach(([rk, mins]) => {
             if (!s.routes[rk]) s.routes[rk] = { transport: s.settings.defaultTransport };
             s.routes[rk].recordedTime = mins;
-            console.log('[DEBUG] setState set', rk, '→', mins, 'min');
           });
         });
-        console.log('[DEBUG] routes keys AFTER setState:', Object.keys(state.routes).join(', '));
-        Object.entries(updates).forEach(([rk]) => {
-          console.log('[DEBUG] post-setState', rk, 'recordedTime =', state.routes[rk]?.recordedTime);
-        });
       }
+
+      let msg = `通勤時間填入完成：成功 ${success} 條`;
       if (skipped > 0) {
         const transitMsg = skippedTransitKeys.length > 0 ? `（含 ${skippedTransitKeys.length} 條大眾運輸需 key）` : '';
         msg += `、略過 ${skipped} 條${transitMsg}`;
@@ -3643,11 +3638,6 @@
             .catch(err => { console.error('autoFill error', err); showToast('自動填入失敗', 'warn'); })
             .finally(() => {
               autoFillLoadingDayId = null;
-              console.log('[DEBUG] finally() — all routes recordedTime:');
-              segments.forEach(seg => {
-                const r = state.routes[seg.rk];
-                console.log('[DEBUG] finally ' + seg.rk + ' recordedTime =', r?.recordedTime, r ? '(exists)' : '(MISSING)');
-              });
               render();
             });
           return;
