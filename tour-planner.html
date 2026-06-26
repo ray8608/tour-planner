@@ -1197,6 +1197,17 @@
       return { lat: r.latitude, lng: r.longitude, timezone: r.timezone, countryCode: r.country_code, resolvedName: `${r.name}, ${r.country}` };
     }
 
+    function getModelForCountry(countryCode) {
+      if (!countryCode) return 'best_match';
+      const code = countryCode.toUpperCase();
+      if (code === 'JP' || code === 'TW') return 'jma_seamless';
+      if (code === 'CN') return 'cma_grapes_global';
+      if (['KR','DE','FR','IT','ES','GB','AT','CH','NL','BE','PL','CZ',
+           'SE','NO','DK','FI','PT','GR','HU','RO','SK','SI','HR',
+           'BG','RS','BA','ME','MK','AL'].includes(code)) return 'icon_seamless';
+      return 'best_match';
+    }
+
     async function fetchForecast(lat, lng, timezone, startDate, endDate) {
       const params = new URLSearchParams({
         latitude:  lat,
