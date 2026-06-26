@@ -2181,7 +2181,17 @@
       html += `</div>`;
       html += renderHotelEndMarker(day, slots);
       html += renderDayStatsBar(computeDayStats(day, slots));
-      html += `<button class="btn-add" data-action="add-spot" data-day-id="${day.id}">＋ 新增景點</button>`;
+      html += `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
+          <button class="btn-add" data-action="add-spot" data-day-id="${day.id}">＋ 新增景點</button>
+          ${day.spots.length > 0 ? `
+            <button class="btn-accent" data-action="auto-fill-day" data-day-id="${day.id}"
+              ${autoFillLoadingDayId === day.id ? 'disabled' : ''}
+              style="font-size:12px;padding:5px 10px">
+              ${autoFillLoadingDayId === day.id ? '查詢中…' : '⏱ 自動填通勤'}
+            </button>
+          ` : ''}
+        </div>`;
       return html;
     }
 
