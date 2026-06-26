@@ -3348,6 +3348,12 @@
         if (action === 'weather-model-select') {
           const val = e.target.value;
           setState(s => { s.settings.weatherModel = val === 'null' ? null : val; }, { recordHistory: false });
+          const city = state.settings.weatherCity.trim().toLowerCase();
+          if (city) {
+            const cache = loadWeatherCache();
+            if (cache[city]) { cache[city].forecastFetchedAt = 0; saveWeatherCache(cache); }
+          }
+          setTimeout(fetchWeatherIfNeeded, 0);
           return;
         }
 
