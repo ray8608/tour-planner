@@ -1242,6 +1242,7 @@
       if (!state.tripStartDate || !state.settings.weatherGeo) return;
       if (weatherFetchInFlight) return;
       const { lat, lng, timezone } = state.settings.weatherGeo;
+      const model = state.settings.weatherModel || getModelForCountry(state.settings.weatherGeo.countryCode);
       const city = state.settings.weatherCity.trim().toLowerCase();
       const dates = state.days.map((_, i) => getDayIsoDate(i)).filter(Boolean);
       if (!dates.length) return;
@@ -1255,7 +1256,7 @@
       if (allCached) return;
       weatherFetchInFlight = true;
       try {
-        const forecast = await fetchForecast(lat, lng, timezone, startDate, endDate);
+        const forecast = await fetchForecast(lat, lng, timezone, startDate, endDate, model);
         const newEntry = {
           ...(entry || { lat, lng, timezone, resolvedName: state.settings.weatherGeo.resolvedName, fetchedAt: Date.now() }),
           forecast: { ...(entry?.forecast || {}), ...forecast },
