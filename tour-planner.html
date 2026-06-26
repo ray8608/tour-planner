@@ -1146,7 +1146,7 @@
     }
 
     // ===== Weather (Open-Meteo) =====
-    const WEATHER_CACHE_KEY = 'weather-cache-v1';
+    const WEATHER_CACHE_KEY = 'weather-cache-v2';
 
     function wmoToEmoji(code) {
       if (code === null || code === undefined) return '';
@@ -1194,7 +1194,7 @@
       const data = await res.json();
       if (!data.results || !data.results.length) return null;
       const r = data.results[0];
-      return { lat: r.latitude, lng: r.longitude, timezone: r.timezone, resolvedName: `${r.name}, ${r.country}` };
+      return { lat: r.latitude, lng: r.longitude, timezone: r.timezone, countryCode: r.country_code, resolvedName: `${r.name}, ${r.country}` };
     }
 
     async function fetchForecast(lat, lng, timezone, startDate, endDate) {
@@ -2495,6 +2495,7 @@
                 <div class="help-item">• <b>版面配置</b>：A 頁籤式 / B 側邊欄 / C 垂直捲動</div>
                 <div class="help-item">• <b>主題</b>：🌙 Dark / ☀️ Light / ⚡ Cyber（賽博龐克）/ 🧈 Cream（現代奶油，預設）</div>
                 <div class="help-item">• <b>預設交通方式</b>：新景點之間預設使用的交通方式</div>
+                <div class="help-item">• <b>天氣城市</b>：輸入英文城市名（如 Taipei、Tokyo）並按確認，每天標題旁會顯示天氣預報；天氣資料來源為 Open-Meteo，<b>僅支援未來約 16 天內的預報</b>，超出範圍的日期會持續顯示 ⏳</div>
               </div>
 
             </div>
@@ -2502,7 +2503,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：修復手機版 header 第三排排版（撤銷／重做／設定獨立成一排）
+                <b style="color:var(--text)">最後更新</b>：說明頁面新增天氣預報限制說明（Open-Meteo 僅支援未來約 16 天內）
               </div>
             </div>
 
