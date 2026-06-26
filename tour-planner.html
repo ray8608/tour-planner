@@ -1280,10 +1280,16 @@
         return `<span class="weather-badge"><span>⏳</span></span>`;
       }
       if (cached === null) return '';
-      const emoji = wmoToEmoji(cached.weathercode);
-      const rain  = cached.precipProb >= 20
-        ? `<span class="weather-rain">💧${cached.precipProb}%</span>`
-        : '';
+      const emoji = wmoToEmoji(cached.weatherCode);
+      let rain = '';
+      if (cached.precipProb >= 50) {
+        const sum = cached.precipSum;
+        rain = (sum != null && sum >= 1)
+          ? `<span class="weather-rain">💧${Number.isInteger(sum) ? sum : sum.toFixed(1)}mm</span>`
+          : `<span class="weather-rain">💧${cached.precipProb}%</span>`;
+      } else if (cached.precipProb >= 20) {
+        rain = `<span class="weather-rain">💧${cached.precipProb}%</span>`;
+      }
       return `<span class="weather-badge">
         ${emoji ? `<span class="weather-icon">${emoji}</span>` : ''}
         <span class="weather-temp">${cached.tempMax}°/${cached.tempMin}°</span>
@@ -2635,7 +2641,7 @@
           ? getCachedForecast(state.settings.weatherCity, isoDate)
           : undefined;
         const wSnippet = (wCache && wCache !== null)
-          ? ` <span style="font-size:10px;opacity:0.85">${wmoToEmoji(wCache.weathercode)} ${wCache.tempMax}°</span>`
+          ? ` <span style="font-size:10px;opacity:0.85">${wmoToEmoji(wCache.weatherCode)} ${wCache.tempMax}°</span>`
           : '';
         return `
           <button class="sidebar-day-btn ${d.id === active?.id ? 'active' : ''}"
