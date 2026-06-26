@@ -1516,17 +1516,21 @@
 
     // ===== Duration select HTML =====
     function renderDurationSelects(totalMins, hAction, mAction, dataAttrs) {
-      const h = Math.floor((totalMins || 0) / 60);
-      const m = (totalMins || 0) % 60;
-      const hasVal = (totalMins || 0) > 0;
+      const mins = totalMins || 0;
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      const hasVal = mins > 0;
       const cls = `duration-select${hasVal ? ' has-value' : ''}`;
-      const hourOpts = Array.from({length: 13}, (_, i) =>
+      const minOpts = [0,5,10,15,20,25,30,35,40,45,50,55];
+      const mMatched = minOpts.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a);
+      const maxH = Math.max(12, h);
+      const hourOpts = Array.from({length: maxH + 1}, (_, i) =>
         `<option value="${i}"${i === h ? ' selected' : ''}>${i}小時</option>`).join('');
-      const minOpts = [0,5,10,15,20,25,30,35,40,45,50,55].map(v =>
-        `<option value="${v}"${v === m ? ' selected' : ''}>${v}分</option>`).join('');
+      const minOptsHtml = minOpts.map(v =>
+        `<option value="${v}"${v === mMatched ? ' selected' : ''}>${v}分</option>`).join('');
       return `<span class="duration-group" ${dataAttrs}>` +
         `<select class="${cls}" data-action="${hAction}">${hourOpts}</select>` +
-        `<select class="${cls}" data-action="${mAction}">${minOpts}</select>` +
+        `<select class="${cls}" data-action="${mAction}">${minOptsHtml}</select>` +
         `</span>`;
     }
 
@@ -2698,7 +2702,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：修正 Google Maps DirectionsService 呼叫問題——改用 Maps JavaScript API DirectionsService 取代 fetch() REST API，解決 CORS 封鎖
+                <b style="color:var(--text)">最後更新</b>：修正交通時間顯示——renderDurationSelects 分鐘選項改為自動匹配最接近值，小時選項動態擴展支援超過 12 小時
               </div>
             </div>
 
