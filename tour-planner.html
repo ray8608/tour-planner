@@ -3549,6 +3549,66 @@
           copySpotToDay(spotId, fromDayId, toDayId);
           return;
         }
+
+        // --- Auto-fill: open dialog ---
+        if (action === 'auto-fill-day') {
+          const dayId = el.dataset.dayId;
+          const day = state.days.find(d => d.id === dayId);
+          if (!day) return;
+          const segments = collectRouteSegments(day);
+          const fillable = segments.filter(s =>
+            !(s.transport === 'transit' && state.settings.googleMapsApiKey === 'NONE')
+          );
+          if (fillable.length === 0) {
+            showToast('此天無可填入的路線段', 'warn');
+            return;
+          }
+          autoFillDialogState = { segments, scope: dayId };
+          render();
+          return;
+        }
+
+        if (action === 'auto-fill-all') {
+          const segments = collectRouteSegments(state.days);
+          const fillable = segments.filter(s =>
+            !(s.transport === 'transit' && state.settings.googleMapsApiKey === 'NONE')
+          );
+          if (fillable.length === 0) {
+            showToast('無可填入的路線段', 'warn');
+            return;
+          }
+          autoFillDialogState = { segments, scope: 'all' };
+          render();
+          return;
+        }
+
+        // --- Auto-fill: close dialog ---
+        if (action === 'close-autofill-dialog') {
+          autoFillDialogState = null;
+          render();
+          return;
+        }
+
+        // --- Auto-fill: confirm ---
+        if (action === 'confirm-autofill') {
+          if (!autoFillDialogState) return;
+          const overwriteEl = document.getElementById('autofill-overwrite');
+          const bufferEl = document.getElementById('autofill-buffer');
+          const overwrite = overwriteEl ? overwriteEl.checked : true;
+          const bufferMins = Math.max(0, parseInt(bufferEl?.value || '0', 10) || 0);
+          const segments = autoFillDialogState.segments;
+          const scope = autoFillDialogState.scope;
+
+          autoFillDialogState = null;
+          autoFillLoadingDayId = scope;
+          render();
+
+          autoFillCommuteTime(segments, { bufferMins, overwrite }).finally(() => {
+            autoFillLoadingDayId = null;
+            render();
+          });
+          return;
+        }
       });
 
       app.addEventListener('keydown', e => {
@@ -3604,6 +3664,12 @@
         if (action === 'hotel-end-name') {
           const day = state.days.find(d => d.id === e.target.dataset.dayId);
           if (day) { day.endHotelName = e.target.value; save(); }
+          return;
+        }
+
+        if (action === 'gmaps-api-key-input') {
+          const key = e.target.value.trim();
+          setState(s => { s.settings.googleMapsApiKey = key || ''; });
           return;
         }
       });
@@ -3671,6 +3737,18 @@
             if (cache[city]) { cache[city].forecastFetchedAt = 0; saveWeatherCache(cache); }
           }
           setTimeout(fetchWeatherIfNeeded, 0);
+          return;
+        }
+
+        if (action === 'gmaps-key-mode') {
+          const val = e.target.dataset.val;
+          setState(s => {
+            if (val === 'NONE') {
+              s.settings.googleMapsApiKey = 'NONE';
+            } else {
+              if (s.settings.googleMapsApiKey === 'NONE') s.settings.googleMapsApiKey = '';
+            }
+          });
           return;
         }
 
