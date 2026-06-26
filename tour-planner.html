@@ -2698,7 +2698,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：修正 Google Maps API 呼叫方式——改用 Maps JavaScript API DirectionsService 取代 fetch() 直接呼叫 REST API，解決瀏覽器 CORS 封鎖問題；加入除錯日誌以追蹤路線回傳
+                <b style="color:var(--text)">最後更新</b>：修正 Google Maps 交通時間計算——先以 Geocoder 將地名轉為座標再查詢路線，解決地名解析失敗問題
               </div>
             </div>
 
@@ -3034,26 +3034,24 @@
       return mapsApiPromise;
     }
 
+    // 用 Google Geocoder 將地名轉為座標，再透過 DirectionsService 計算時間
     async function googleMapsRoute(fromName, toName, mode, key) {
       try {
         await loadGoogleMapsAPI(key);
-        const service = new google.maps.DirectionsService();
-        return await new Promise(resolve => {
-          service.route(
-            { origin: fromName, destination: toName, travelMode: mode.toUpperCase(), alternatives: false },
+        const geocoder = new google.maps.Geocoder();
+        const geocode = addr => new Promise(resolve =>
+          geocoder.geocode({ address: addr, region: 'TW' }, (r, s) =>
+            resolve(s === 'OK' && r?.[0]?.geometry?.location ? r[0].geometry.location : null)));
+        const [fromLoc, toLoc] = await Promise.all([geocode(fromName), geocode(toName)]);
+        if (!fromLoc || !toLoc) return null;
+        const svc = new google.maps.DirectionsService();
+        return await new Promise(resolve =>
+          svc.route({ origin: fromLoc, destination: toLoc, travelMode: mode.toUpperCase() },
             (response, status) => {
-              console.log('[googleMapsRoute]', { fromName, toName, mode, status, routesLen: response?.routes?.length });
-              if (response?.routes?.[0]) {
-                console.log('[googleMapsRoute] leg0:', JSON.stringify(response.routes[0].legs?.[0], (k, v) => k === 'steps' ? '[steps]' : v, 2));
-              }
-              if (status === 'OK' && response?.routes?.[0]?.legs?.[0]?.duration?.value != null) {
+              if (status === 'OK' && response?.routes?.[0]?.legs?.[0]?.duration?.value != null)
                 resolve(response.routes[0].legs[0].duration.value);
-              } else {
-                resolve(null);
-              }
-            }
-          );
-        });
+              else resolve(null);
+            }));
       } catch { return null; }
     }
 
