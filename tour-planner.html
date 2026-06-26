@@ -955,6 +955,33 @@
     .weather-temp { font-weight: 500; color: var(--text); }
     .weather-rain { color: #60a5fa; }
 
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 13px;
+      color: var(--text);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.toast-warn { border-color: #f59e0b; }
+    .toast.toast-ok   { border-color: #34d399; }
+
   </style>
 </head>
 <body>
@@ -2788,6 +2815,24 @@
         ${renderMobileBottomBar()}`;
       window.scrollTo(0, scrollY);
       setTimeout(fetchWeatherIfNeeded, 0);
+    }
+
+    // ===== Toast =====
+    function showToast(msg, type = 'ok') {
+      const existing = document.getElementById('app-toast');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.id = 'app-toast';
+      el.className = `toast toast-${type}`;
+      el.textContent = msg;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => el.classList.add('show'));
+      });
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 250);
+      }, 3500);
     }
 
     function init() {
