@@ -2981,6 +2981,7 @@
     // opts: { bufferMins: number, overwrite: boolean }
     async function autoFillCommuteTime(segments, opts) {
       const { bufferMins, overwrite } = opts;
+      const safeBuf = Number.isFinite(bufferMins) && bufferMins >= 0 ? bufferMins : 0;
       const key = state.settings.googleMapsApiKey;
       const hasKey = key && key !== 'NONE';
       const osrmProfile = { driving: 'driving', walking: 'foot', transit: 'driving' };
@@ -3007,17 +3008,17 @@
           secs = await googleMapsRoute(fromName, toName, transport, key);
         } else {
           const fromGeo = await nominatimGeocode(fromName);
-          await delay(1100);
           if (!fromGeo) { failed++; continue; }
-          const toGeo = await nominatimGeocode(toName);
           await delay(1100);
+          const toGeo = await nominatimGeocode(toName);
           if (!toGeo) { failed++; continue; }
+          await delay(1100);
           const profile = osrmProfile[transport] || 'driving';
           secs = await osrmRoute(fromGeo, toGeo, profile);
         }
 
         if (secs !== null) {
-          updates[rk] = Math.ceil(secs / 60) + bufferMins;
+          updates[rk] = Math.ceil(secs / 60) + safeBuf;
           success++;
         } else {
           failed++;
@@ -3027,7 +3028,7 @@
       if (Object.keys(updates).length > 0) {
         setState(s => {
           Object.entries(updates).forEach(([rk, mins]) => {
-            if (!s.routes[rk]) s.routes[rk] = { transport: state.settings.defaultTransport };
+            if (!s.routes[rk]) s.routes[rk] = { transport: s.settings.defaultTransport };
             s.routes[rk].recordedTime = mins;
           });
         });
