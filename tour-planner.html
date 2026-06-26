@@ -2698,7 +2698,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：新增「⏱ 自動填通勤時間」功能——一鍵透過 OpenStreetMap 或 Google Maps 查詢並填入行程中所有路線的交通時間，支援緩衝時間與覆蓋選項
+                <b style="color:var(--text)">最後更新</b>：修正 Google Maps API 呼叫方式——改用 Maps JavaScript API DirectionsService 取代 fetch() 直接呼叫 REST API，解決瀏覽器 CORS 封鎖問題
               </div>
             </div>
 
