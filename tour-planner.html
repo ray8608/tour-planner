@@ -1194,14 +1194,6 @@
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    function hhmmToDate(hhmm) {
-      if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return null;
-      const [h, m] = hhmm.split(':').map(Number);
-      const d = new Date();
-      d.setHours(h, m, 0, 0);
-      return d;
-    }
-
     function hotelStartId(dayId) { return 'hs_' + dayId; }
     function hotelEndId(dayId)   { return 'he_' + dayId; }
 
@@ -2710,7 +2702,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：交通時間查詢改用行程預估出發時間——傳入 departureTime 至 DirectionsService，transit 模式改查詢對應時刻表
+                <b style="color:var(--text)">最後更新</b>：修正交通時間顯示——renderDurationSelects 分鐘選項改為自動匹配最接近值，小時選項動態擴展支援超過 12 小時
               </div>
             </div>
 
@@ -2970,11 +2962,6 @@
       const segments = [];
       dayList.forEach(day => {
         if (day.spots.length === 0) return;
-
-        // 估算每個路段的出發時間
-        let cursor = day.startTime || null;
-        const depTimes = {};
-
         const fromNodes = [
           { id: hotelStartId(day.id), name: day.startHotelName || '' },
           ...day.spots
@@ -2983,21 +2970,6 @@
           ...day.spots,
           { id: hotelEndId(day.id), name: day.endHotelName || '' }
         ];
-
-        fromNodes.forEach((from, i) => {
-          const to = toNodes[i];
-          const rk = routeKey(from.id, to.id);
-          depTimes[rk] = cursor; // 這段的出發時間（HH:MM 或 null）
-          // 將時間往下推：路段時間 + 景點停留時間
-          const route = state.routes[rk] || {};
-          const routeMins = route.recordedTime || 0;
-          if (routeMins > 0 && cursor) cursor = addMinsToHHMM(cursor, routeMins);
-          if (i < day.spots.length && cursor) {
-            const stay = day.spots[i].stayDuration || 0;
-            if (stay > 0) cursor = addMinsToHHMM(cursor, stay);
-          }
-        });
-
         fromNodes.forEach((from, i) => {
           const to = toNodes[i];
           const rk = routeKey(from.id, to.id);
@@ -3008,8 +2980,7 @@
             fromName: from.name || '',
             toName: to.name || '',
             transport,
-            hasTime: (route.recordedTime || 0) > 0,
-            departureTime: hhmmToDate(depTimes[rk]),
+            hasTime: (route.recordedTime || 0) > 0
           });
         });
       });
@@ -3068,20 +3039,12 @@
     }
 
     // 用 DirectionsService 計算路線交通時間
-    async function googleMapsRoute(fromName, toName, mode, key, departureTime) {
+    async function googleMapsRoute(fromName, toName, mode, key) {
       try {
         await loadGoogleMapsAPI(key);
         const svc = new google.maps.DirectionsService();
-        const opts = { origin: fromName, destination: toName, travelMode: mode.toUpperCase() };
-        if (departureTime) {
-          if (mode === 'transit') {
-            opts.transitOptions = { departureTime };
-          } else {
-            opts.departureTime = departureTime;
-          }
-        }
         return await new Promise(resolve =>
-          svc.route(opts,
+          svc.route({ origin: fromName, destination: toName, travelMode: mode.toUpperCase() },
             (response, status) => {
               console.log('[googleMapsRoute]', { fromName, toName, mode, status, hasDuration: !!response?.routes?.[0]?.legs?.[0]?.duration?.value });
               if (status === 'OK' && response?.routes?.[0]?.legs?.[0]?.duration?.value != null)
@@ -3118,7 +3081,7 @@
         let secs = null;
 
         if (hasKey) {
-          secs = await googleMapsRoute(fromName, toName, transport, key, seg.departureTime);
+          secs = await googleMapsRoute(fromName, toName, transport, key);
         } else {
           const fromGeo = await nominatimGeocode(fromName);
           if (!fromGeo) { failed++; continue; }
