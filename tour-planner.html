@@ -982,6 +982,46 @@
     .toast.toast-warn { border-color: #f59e0b; }
     .toast.toast-ok   { border-color: #34d399; }
 
+    /* ===== Auto-fill overlay ===== */
+    .autofill-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      display: none;
+    }
+    .autofill-overlay.open { display: block; }
+    .autofill-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+    }
+    .autofill-dialog {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      min-width: 280px;
+      max-width: 340px;
+      width: calc(100% - 40px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      z-index: 1;
+    }
+    .autofill-dialog-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .autofill-dialog-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
   </style>
 </head>
 <body>
@@ -1816,6 +1856,10 @@
 
     let weatherGeoLoading = false;
     let weatherGeoError   = '';
+    let autoFillDialogState = null;
+    // null = closed; { segments, scope } = open
+    let autoFillLoadingDayId = null;
+    // null | 'all' | day.id — set while API fetch is in progress
     let settingsOpen = false;
     let helpOpen = false;
     let tripsOpen = false;
@@ -2161,6 +2205,53 @@
           <button class="btn-ghost" data-action="copy-day"
             data-day-id="${day.id}" title="複製此天">⎘</button>
           ${renderDeleteDayBtn(day)}
+        </div>`;
+    }
+
+    // ===== Auto-fill Overlay =====
+    function renderAutoFillOverlay() {
+      if (!autoFillDialogState) {
+        return `<div class="autofill-overlay" id="autofill-overlay"></div>`;
+      }
+      const segs = autoFillDialogState.segments;
+      const hasExisting = segs.some(s => s.hasTime);
+      const total = segs.length;
+      const transitSkipped = state.settings.googleMapsApiKey === 'NONE'
+        ? segs.filter(s => s.transport === 'transit').length
+        : 0;
+      const fillable = total - transitSkipped;
+
+      return `
+        <div class="autofill-overlay open" id="autofill-overlay">
+          <div class="autofill-backdrop" data-action="close-autofill-dialog"></div>
+          <div class="autofill-dialog">
+            <div class="autofill-dialog-title">⏱ 自動填通勤時間</div>
+            <div style="font-size:13px;margin-bottom:10px">
+              找到 <b>${fillable}</b> 條路線待填入
+              ${transitSkipped > 0
+                ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">※ ${transitSkipped} 條大眾運輸路線略過（未設定 Google Maps key）</div>`
+                : ''}
+            </div>
+            ${hasExisting ? `
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;cursor:pointer">
+                <input type="checkbox" id="autofill-overwrite" checked>
+                <span>覆蓋已有時間的路線</span>
+              </label>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">若不勾選，已有時間的路線將略過</div>
+            ` : ''}
+            <div style="font-size:13px;margin-bottom:6px">緩衝時間</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <input type="number" id="autofill-buffer" value="0" min="0" max="120"
+                style="width:70px;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:13px;background:var(--input-bg);color:var(--text)">
+              <span style="font-size:13px;color:var(--text-muted)">分鐘</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted)">每段通勤時間自動加上此緩衝</div>
+            <div class="autofill-dialog-actions">
+              <button class="btn" data-action="close-autofill-dialog">取消</button>
+              <button class="btn-accent" data-action="confirm-autofill"
+                ${fillable === 0 ? 'disabled' : ''}>開始填入</button>
+            </div>
+          </div>
         </div>`;
     }
 
@@ -2810,6 +2901,7 @@
           ${mainContent}
         </main>
         ${renderShareOverlay()}
+        ${renderAutoFillOverlay()}
         ${renderHelpOverlay()}
         ${renderTripsOverlay()}
         ${renderMobileBottomBar()}`;
