@@ -2350,6 +2350,38 @@
               </div>
             </div>`;
             })()}
+            <div class="settings-group">
+              <div class="settings-label">Google Maps</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="gmaps-key-mode" value="NONE"
+                    ${state.settings.googleMapsApiKey === 'NONE' ? 'checked' : ''}
+                    data-action="gmaps-key-mode" data-val="NONE">
+                  沒有 key（大眾運輸路線將略過）
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                  <input type="radio" name="gmaps-key-mode" value="KEY"
+                    ${state.settings.googleMapsApiKey !== 'NONE' ? 'checked' : ''}
+                    data-action="gmaps-key-mode" data-val="KEY">
+                  使用 API Key
+                </label>
+                ${state.settings.googleMapsApiKey !== 'NONE' ? `
+                  <input type="text"
+                    style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;background:var(--input-bg);color:var(--text)"
+                    placeholder="Google Maps Directions API key"
+                    value="${escHtml(state.settings.googleMapsApiKey)}"
+                    data-action="gmaps-api-key-input">
+                ` : ''}
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-label">工具</div>
+              <button class="btn-accent" data-action="auto-fill-all"
+                ${autoFillLoadingDayId === 'all' ? 'disabled' : ''}
+                style="width:100%">
+                ${autoFillLoadingDayId === 'all' ? '查詢中…' : '⏱ 自動填所有天的通勤時間'}
+              </button>
+            </div>
           </div>
         </div>`;
     }
