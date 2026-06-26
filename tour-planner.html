@@ -3603,10 +3603,12 @@
           autoFillLoadingDayId = scope;
           render();
 
-          autoFillCommuteTime(segments, { bufferMins, overwrite }).finally(() => {
-            autoFillLoadingDayId = null;
-            render();
-          });
+          autoFillCommuteTime(segments, { bufferMins, overwrite })
+            .catch(err => { console.error('autoFill error', err); showToast('自動填入失敗', 'warn'); })
+            .finally(() => {
+              autoFillLoadingDayId = null;
+              render();
+            });
           return;
         }
       });
@@ -3669,7 +3671,7 @@
 
         if (action === 'gmaps-api-key-input') {
           const key = e.target.value.trim();
-          setState(s => { s.settings.googleMapsApiKey = key || ''; });
+          setState(s => { s.settings.googleMapsApiKey = key || ''; }, { recordHistory: false });
           return;
         }
       });
