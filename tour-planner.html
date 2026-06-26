@@ -2200,6 +2200,18 @@
                   : state.settings.weatherGeo
                     ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">✓ ${escHtml(state.settings.weatherGeo.resolvedName)}</div>`
                     : ''}
+              <div style="margin-top:8px">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">天氣模型</div>
+                <select data-action="weather-model-select"
+                  style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;background:var(--input-bg);color:var(--text)">
+                  <option value="null" ${!state.settings.weatherModel ? 'selected' : ''}>自動（根據城市）</option>
+                  <option value="jma_seamless" ${state.settings.weatherModel === 'jma_seamless' ? 'selected' : ''}>JMA（日本氣象廳，日本／台灣）</option>
+                  <option value="cma_grapes_global" ${state.settings.weatherModel === 'cma_grapes_global' ? 'selected' : ''}>CMA（中國氣象局，中國）</option>
+                  <option value="icon_seamless" ${state.settings.weatherModel === 'icon_seamless' ? 'selected' : ''}>ICON（東北亞／歐洲）</option>
+                  <option value="gfs_seamless" ${state.settings.weatherModel === 'gfs_seamless' ? 'selected' : ''}>GFS（美國 NOAA，全球通用）</option>
+                  <option value="best_match" ${state.settings.weatherModel === 'best_match' ? 'selected' : ''}>best_match（Open-Meteo 預設）</option>
+                </select>
+              </div>
             </div>
             ${(() => {
               const ts = computeTripStats();
@@ -3330,6 +3342,12 @@
             if (!s.routes[k]) s.routes[k] = {};
             s.routes[k].recordedTime = totalMins;
           });
+          return;
+        }
+
+        if (action === 'weather-model-select') {
+          const val = e.target.value;
+          setState(s => { s.settings.weatherModel = val === 'null' ? null : val; }, { recordHistory: false });
           return;
         }
 
