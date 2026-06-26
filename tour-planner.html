@@ -2698,7 +2698,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：修正 Google Maps API 呼叫方式——改用 Maps JavaScript API DirectionsService 取代 fetch() 直接呼叫 REST API，解決瀏覽器 CORS 封鎖問題
+                <b style="color:var(--text)">最後更新</b>：修正 Google Maps API 呼叫方式——改用 Maps JavaScript API DirectionsService 取代 fetch() 直接呼叫 REST API，解決瀏覽器 CORS 封鎖問題；加入除錯日誌以追蹤路線回傳
               </div>
             </div>
 
@@ -3024,7 +3024,7 @@
         delete window.google;
         const script = document.createElement('script');
         script.dataset.mapsApi = '';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async`;
         script.async = true;
         script.onload = resolve;
         script.onerror = () => { mapsApiPromise = null; mapsApiLoadedKey = null; reject(new Error('Failed to load Google Maps API')); };
@@ -3040,9 +3040,13 @@
         const service = new google.maps.DirectionsService();
         return await new Promise(resolve => {
           service.route(
-            { origin: fromName, destination: toName, travelMode: mode.toUpperCase() },
+            { origin: fromName, destination: toName, travelMode: mode.toUpperCase(), alternatives: false },
             (response, status) => {
-              if (status === 'OK' && response.routes?.[0]?.legs?.[0]?.duration?.value) {
+              console.log('[googleMapsRoute]', { fromName, toName, mode, status, routesLen: response?.routes?.length });
+              if (response?.routes?.[0]) {
+                console.log('[googleMapsRoute] leg0:', JSON.stringify(response.routes[0].legs?.[0], (k, v) => k === 'steps' ? '[steps]' : v, 2));
+              }
+              if (status === 'OK' && response?.routes?.[0]?.legs?.[0]?.duration?.value != null) {
                 resolve(response.routes[0].legs[0].duration.value);
               } else {
                 resolve(null);
