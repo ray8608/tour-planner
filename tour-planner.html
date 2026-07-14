@@ -1959,6 +1959,75 @@
       return coordMap;
     }
 
+    function showExportPreviewDialog(coordMap, onConfirm) {
+      const items = [];
+      state.days.forEach((day, i) => {
+        const dayLabel = `第${i + 1}天`;
+        if (day.startHotelName?.trim())
+          items.push({ name: day.startHotelName.trim(), dayLabel });
+        day.spots.forEach(spot => {
+          if (spot.name?.trim()) items.push({ name: spot.name.trim(), dayLabel });
+        });
+        if (day.endHotelName?.trim())
+          items.push({ name: day.endHotelName.trim(), dayLabel });
+      });
+
+      const rowsHtml = items.length === 0
+        ? '<div style="color:var(--text-muted);text-align:center;padding:12px 0">（無景點）</div>'
+        : items.map(item => {
+            const hasCoord = !!coordMap[item.name];
+            const icon = hasCoord ? '🟢' : '🔴';
+            const addrHtml = hasCoord ? '' :
+              '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">（未找到座標）</div>';
+            return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:16px;line-height:1.4">${icon}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.name)}</div>
+                ${addrHtml}
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);white-space:nowrap">${escHtml(item.dayLabel)}</div>
+            </div>`;
+          }).join('');
+
+      const hasRed = items.some(item => !coordMap[item.name]);
+      const infoHtml = hasRed
+        ? '<div style="font-size:12px;color:var(--text-muted);margin-top:12px">ℹ️ 紅色地點將略過定位，其餘正常匯出</div>'
+        : '';
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center';
+
+      const panel = document.createElement('div');
+      panel.style.cssText = [
+        'background:var(--surface)', 'border:1px solid var(--border)',
+        'border-radius:10px', 'padding:20px 24px',
+        'width:min(480px,90vw)', 'max-height:80vh',
+        'display:flex', 'flex-direction:column',
+        'box-shadow:0 8px 32px rgba(0,0,0,0.35)',
+        'color:var(--text)',
+      ].join(';');
+
+      panel.innerHTML = `
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px">確認地點座標</div>
+        <div style="overflow-y:auto;flex:1;margin-bottom:12px">${rowsHtml}</div>
+        ${infoHtml}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button id="export-preview-cancel" style="padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text);font-size:13px;cursor:pointer">取消</button>
+          <button id="export-preview-confirm" style="padding:7px 16px;border-radius:6px;border:none;background:var(--color-accent,#2563eb);color:#fff;font-size:13px;cursor:pointer;font-weight:500">確認匯出</button>
+        </div>`;
+
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+
+      const close = () => overlay.remove();
+      panel.querySelector('#export-preview-cancel').addEventListener('click', close);
+      overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      panel.querySelector('#export-preview-confirm').addEventListener('click', () => {
+        close();
+        onConfirm();
+      });
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
