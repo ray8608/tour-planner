@@ -2005,6 +2005,47 @@
       });
     }
 
+    function generateCSV(days, coordMap) {
+      const BOM = '﻿';
+      const header = ['景點名稱', '天', '抵達時間', '離開時間', '停留時間(分)', '備註', '緯度', '經度'].join(',');
+      const rows = [];
+      days.forEach((day, i) => {
+        const slots = computeTimeline(day);
+        const dayLabel = `第${i + 1}天`;
+        day.spots.forEach(spot => {
+          if (!spot.name?.trim()) return;
+          const sl = slots[spot.id] || {};
+          const coord = coordMap[spot.name.trim()];
+          const csvRow = [
+            spot.name.trim(),
+            dayLabel,
+            sl.start || '',
+            sl.end   || '',
+            spot.stayDuration ?? '',
+            (spot.notes || '').replace(/"/g, '""'),
+            coord?.lat ?? '',
+            coord?.lng ?? '',
+          ].map(v => `"${v}"`).join(',');
+          rows.push(csvRow);
+        });
+      });
+      return BOM + header + '\n' + rows.join('\n');
+    }
+
+    async function exportCSV() {
+      const coordMap = await buildCoordMap();
+      showExportPreviewDialog(coordMap, () => {
+        const csv  = generateCSV(state.days, coordMap);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      });
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
