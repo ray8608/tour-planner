@@ -1889,6 +1889,38 @@
       if (failCount > 0) showKmlToast(`${failCount} 個地點未找到座標，已略過定位`);
     }
 
+    function attachSpotAutocomplete(el, spotId, dayId) {
+      if (!window.google?.maps?.places) return;
+      el._autocomplete = true;
+      const ac = new google.maps.places.Autocomplete(el, { fields: ['geometry', 'formatted_address'] });
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace();
+        if (!place.geometry?.location) return;
+        setState(s => {
+          const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+          if (spot) {
+            spot.lat = place.geometry.location.lat();
+            spot.lng = place.geometry.location.lng();
+            spot.resolvedAddress = place.formatted_address || null;
+          }
+        });
+      });
+    }
+
+    async function geocodeSpotByButton(spotId, dayId) {
+      const spot = state.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+      if (!spot || !spot.name?.trim()) return;
+      const geo = await nominatimGeocode(spot.name.trim());
+      setState(s => {
+        const sp = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+        if (sp) {
+          sp.lat = geo?.lat ?? null;
+          sp.lng = geo?.lng ?? null;
+          sp.resolvedAddress = geo?.address ?? null;
+        }
+      });
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
