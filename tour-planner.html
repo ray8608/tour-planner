@@ -1713,6 +1713,15 @@
       setTimeout(() => URL.revokeObjectURL(url), 100);
     }
 
+    async function geocodeForKML(name) {
+      const key = `kml-geo:${name}`;
+      const cached = sessionStorage.getItem(key);
+      if (cached !== null) return JSON.parse(cached);
+      const result = await nominatimGeocode(name);
+      sessionStorage.setItem(key, JSON.stringify(result));
+      return result;
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
