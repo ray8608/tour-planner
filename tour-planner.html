@@ -1866,14 +1866,16 @@
 
       const coordMap = {};
       let failCount = 0;
-      for (let i = 0; i < names.length; i++) {
-        showKmlProgress(i + 1, total);
-        const geo = await geocodeForKML(names[i]);
-        if (geo) coordMap[names[i]] = geo;
-        else failCount++;
+      try {
+        for (let i = 0; i < names.length; i++) {
+          showKmlProgress(i + 1, total);
+          const geo = await geocodeForKML(names[i]);
+          if (geo) coordMap[names[i]] = geo;
+          else failCount++;
+        }
+      } finally {
+        hideKmlProgress();
       }
-
-      hideKmlProgress();
 
       const kml = generateKML(state.days, coordMap);
       const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
@@ -1882,7 +1884,7 @@
       a.href     = url;
       a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.kml`;
       a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
 
       if (failCount > 0) showKmlToast(`${failCount} 個地點未找到座標，已略過定位`);
     }
