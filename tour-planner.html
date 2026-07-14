@@ -1813,6 +1813,80 @@
       return lines.join('\n');
     }
 
+    function showKmlProgress(current, total) {
+      let el = document.getElementById('kml-progress');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'kml-progress';
+        el.style.cssText = [
+          'position:fixed', 'top:50%', 'left:50%',
+          'transform:translate(-50%,-50%)',
+          'background:var(--surface)', 'border:1px solid var(--border)',
+          'border-radius:8px', 'padding:20px 28px',
+          'font-size:14px', 'color:var(--text)',
+          'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
+          'z-index:9999', 'text-align:center', 'min-width:200px',
+        ].join(';');
+        document.body.appendChild(el);
+      }
+      el.textContent = `正在查詢座標 ${current} / ${total}…`;
+    }
+
+    function hideKmlProgress() {
+      document.getElementById('kml-progress')?.remove();
+    }
+
+    function showKmlToast(msg) {
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'position:fixed', 'top:50%', 'left:50%',
+        'transform:translate(-50%,-50%)',
+        'background:var(--surface)', 'border:1px solid var(--border)',
+        'border-radius:8px', 'padding:16px 24px',
+        'font-size:13px', 'color:var(--text)',
+        'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
+        'z-index:9999', 'text-align:center',
+      ].join(';');
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    async function exportKML() {
+      const nameSet = new Set();
+      state.days.forEach(day => {
+        if (day.startHotelName?.trim()) nameSet.add(day.startHotelName.trim());
+        if (day.endHotelName?.trim())   nameSet.add(day.endHotelName.trim());
+        day.spots.forEach(spot => { if (spot.name?.trim()) nameSet.add(spot.name.trim()); });
+      });
+      const names = [...nameSet];
+      const total = names.length;
+
+      showKmlProgress(0, total);
+
+      const coordMap = {};
+      let failCount = 0;
+      for (let i = 0; i < names.length; i++) {
+        showKmlProgress(i + 1, total);
+        const geo = await geocodeForKML(names[i]);
+        if (geo) coordMap[names[i]] = geo;
+        else failCount++;
+      }
+
+      hideKmlProgress();
+
+      const kml = generateKML(state.days, coordMap);
+      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.kml`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+
+      if (failCount > 0) showKmlToast(`${failCount} 個地點未找到座標，已略過定位`);
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
