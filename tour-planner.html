@@ -4240,6 +4240,16 @@
         if (mod && e.key === 'y') { e.preventDefault(); redo(); }
         if (mod && e.shiftKey && e.key === 'z') { e.preventDefault(); redo(); }
       });
+
+    document.addEventListener('focusin', e => {
+      const key = state.settings.googleMapsApiKey;
+      if (!key || key === 'NONE') return;
+      if (!e.target.classList.contains('spot-name')) return;
+      if (e.target._autocomplete) return;
+      const { spotId, dayId } = e.target.dataset;
+      if (!spotId || !dayId) return;
+      loadGoogleMapsAPI(key).then(() => attachSpotAutocomplete(e.target, spotId, dayId));
+    });
     }
 
     async function handleImportParam() {
