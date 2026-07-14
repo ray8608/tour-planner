@@ -3126,6 +3126,11 @@
                              color:var(--text);font-size:13px;cursor:pointer">
                       🗺 匯出地圖 (.kml)
                     </button>
+                    <button data-action="export-csv"
+                      style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                             color:var(--text);font-size:13px;cursor:pointer">
+                      📊 匯出試算表 (.csv)
+                    </button>
                   </div>` : ''}
               </div>
               <button class="btn" data-action="open-share">☁️ 共用</button>
@@ -3801,6 +3806,7 @@
         if (action === 'print-trip')      { localMenuOpen = false; render(); window.print(); return; }
         if (action === 'export-ics')      { localMenuOpen = false; render(); exportICS(); return; }
         if (action === 'export-kml')      { localMenuOpen = false; render(); exportKML(); return; }
+        if (action === 'export-csv')      { localMenuOpen = false; render(); exportCSV(); return; }
         if (action === 'geocode-spot') {
           const { spotId, dayId } = el.dataset;
           el.disabled = true; el.textContent = '…';
