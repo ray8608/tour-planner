@@ -3330,7 +3330,7 @@
     function addSpotAndFocus(dayId) {
       setState(s => {
         const day = s.days.find(d => d.id === dayId);
-        if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '', category: null });
+        if (day) day.spots.push({ id: genId(), name: '', stayDuration: 0, notes: '', category: null, lat: null, lng: null, resolvedAddress: null });
       });
       requestAnimationFrame(() => {
         const cards = document.querySelectorAll(`.spot-card[data-day-id="${dayId}"]`);
@@ -3867,7 +3867,11 @@
         if (action === 'spot-name') {
           const spot = state.days.find(d => d.id === e.target.dataset.dayId)
             ?.spots.find(sp => sp.id === e.target.dataset.spotId);
-          if (spot) { spot.name = e.target.value; save(); }
+          if (spot) {
+            spot.name = e.target.value;
+            spot.lat = null; spot.lng = null; spot.resolvedAddress = null;
+            save();
+          }
           return;
         }
         if (action === 'spot-notes') {
@@ -4011,7 +4015,10 @@
           const { spotId, dayId } = e.target.dataset;
           setState(s => {
             const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
-            if (spot) spot.name = e.target.value;
+            if (spot) {
+              spot.name = e.target.value;
+              spot.lat = null; spot.lng = null; spot.resolvedAddress = null;
+            }
           });
           return;
         }
