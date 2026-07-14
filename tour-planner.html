@@ -1714,6 +1714,7 @@
     }
 
     async function geocodeForKML(name) {
+      if (!name?.trim()) return null;
       const key = `kml-geo:${name}`;
       const cached = sessionStorage.getItem(key);
       if (cached !== null) return JSON.parse(cached);
