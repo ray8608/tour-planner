@@ -2291,6 +2291,13 @@
       const catBtnStyle = catColor ? `style="color:${catColor};opacity:1"` : '';
       const pickerOpen = shareState.catPickerOpenSpotId === spot.id;
 
+      const hasCoords = spot.lat != null && spot.lng != null;
+      const hasKey = state.settings.googleMapsApiKey && state.settings.googleMapsApiKey !== 'NONE';
+      const geocodeAction = hasKey ? 'focus-spot-autocomplete' : 'geocode-spot';
+      const statusIcon = hasName
+        ? (hasCoords ? '🟢' : '🔴')
+        : '';
+
       return `
         <div class="timeline-row">
           <div class="timeline-left">
@@ -2306,6 +2313,11 @@
                   data-action="open-cat-picker"
                   data-spot-id="${spot.id}" data-day-id="${dayId}"
                   title="選擇分類">${catBtnEmoji}</button>
+                ${hasName ? `<button class="btn-ghost"
+                  data-action="${geocodeAction}"
+                  data-spot-id="${spot.id}" data-day-id="${dayId}"
+                  title="${hasKey ? '以 Google Maps 搜尋座標' : '以 Nominatim 查詢座標'}"
+                  style="font-size:13px;padding:2px 6px">🔍</button>` : ''}
                 <input class="spot-name" value="${escHtml(spot.name)}" placeholder="景點名稱"
                   data-action="spot-name" data-spot-id="${spot.id}" data-day-id="${dayId}">
                 ${stayHtml}
@@ -2317,6 +2329,13 @@
                 <button class="btn-ghost" data-action="delete-spot"
                   data-spot-id="${spot.id}" data-day-id="${dayId}" title="刪除景點">✕</button>
               </div>
+              ${hasName ? `<div style="display:flex;align-items:center;gap:6px;padding:0 4px 2px">
+                <button data-action="open-spot-map"
+                  data-spot-id="${spot.id}" data-day-id="${dayId}"
+                  style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1"
+                  title="${hasCoords ? '在 Google Maps 查看此座標' : '在 Google Maps 搜尋此名稱'}">${statusIcon}</button>
+                ${spot.resolvedAddress ? `<span style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px">${escHtml(spot.resolvedAddress)}</span>` : ''}
+              </div>` : ''}
               <input class="spot-notes" value="${escHtml(spot.notes)}" placeholder="備註（選填）"
                 data-action="spot-notes" data-spot-id="${spot.id}" data-day-id="${dayId}">
               ${shareState.spotMenuSpotId === spot.id ? renderSpotMenu(spot.id, dayId) : ''}
