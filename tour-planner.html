@@ -2826,11 +2826,12 @@
 
               <div class="help-section">
                 <div class="help-section-title">💾 本地</div>
-                <div class="help-item">• 點 <b>💾 本地 ▾</b> 展開選單，可選擇 <b>📤 匯出 JSON</b> 或 <b>📥 匯入 JSON</b></div>
+                <div class="help-item">• 點 <b>💾 本地 ▾</b> 展開選單，可選擇 <b>📤 匯出 JSON</b>、<b>📥 匯入 JSON</b>、<b>🗺 匯出地圖 (.kml)</b> 等功能</div>
                 <div class="help-item">• <b>匯出</b>：將目前行程儲存為 .json 檔案，可作為備份</div>
                 <div class="help-item">• <b>匯入</b>：選擇之前匯出的 .json 檔案還原行程（會覆蓋目前行程）</div>
                 <div class="help-item">• <b>列印 / PDF</b>：開啟瀏覽器列印對話框，可選「另存為 PDF」；建議先切換至 <b>Layout C（垂直捲動）</b>再列印，以一次輸出全部天數</div>
                 <div class="help-item">• <b>匯出行事曆 (.ics)</b>：下載 .ics 檔案，可匯入 Google 日曆、Apple 行事曆等；需先設定<b>旅行開始日期</b>才能包含正確日期</div>
+                <div class="help-item">• <b>匯出地圖 (.kml)</b>：下載 .kml 檔案，可匯入 <a href="https://mymaps.google.com" target="_blank" rel="noopener">Google My Maps</a>；每天為獨立圖層，包含景點 Pin 與路線折線。匯出時會自動查詢各景點座標（需連網）</div>
               </div>
 
               <div class="help-section">
@@ -2878,7 +2879,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：修正交通時間顯示——renderDurationSelects 分鐘選項改為自動匹配最接近值，小時選項動態擴展支援超過 12 小時
+                <b style="color:var(--text)">最後更新</b>：新增匯出地圖 (.kml) 功能——支援將行程匯出為 KML 檔，可直接匯入 Google My Maps；每天為獨立圖層，包含景點 Pin 與路線折線（2026-07-14）
               </div>
             </div>
 
@@ -2943,6 +2944,11 @@
                       style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
                              border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">
                       📅 匯出行事曆 (.ics)
+                    </button>
+                    <button data-action="export-kml"
+                      style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                             color:var(--text);font-size:13px;cursor:pointer">
+                      🗺 匯出地圖 (.kml)
                     </button>
                   </div>` : ''}
               </div>
@@ -3618,6 +3624,7 @@
         if (action === 'export-json')     { localMenuOpen = false; exportJSON(); return; }
         if (action === 'print-trip')      { localMenuOpen = false; render(); window.print(); return; }
         if (action === 'export-ics')      { localMenuOpen = false; render(); exportICS(); return; }
+        if (action === 'export-kml')      { localMenuOpen = false; render(); exportKML(); return; }
 
         if (action === 'setting') {
           const SETTING_KEYS = ['layout', 'theme', 'defaultTransport', 'fontSize'];
