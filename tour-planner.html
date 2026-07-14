@@ -1853,40 +1853,17 @@
     }
 
     async function exportKML() {
-      const nameSet = new Set();
-      state.days.forEach(day => {
-        if (day.startHotelName?.trim()) nameSet.add(day.startHotelName.trim());
-        if (day.endHotelName?.trim())   nameSet.add(day.endHotelName.trim());
-        day.spots.forEach(spot => { if (spot.name?.trim()) nameSet.add(spot.name.trim()); });
+      const coordMap = await buildCoordMap();
+      showExportPreviewDialog(coordMap, () => {
+        const kml  = generateKML(state.days, coordMap);
+        const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.kml`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       });
-      const names = [...nameSet];
-      const total = names.length;
-
-      showKmlProgress(0, total);
-
-      const coordMap = {};
-      let failCount = 0;
-      try {
-        for (let i = 0; i < names.length; i++) {
-          showKmlProgress(i + 1, total);
-          const geo = await geocodeForKML(names[i]);
-          if (geo) coordMap[names[i]] = geo;
-          else failCount++;
-        }
-      } finally {
-        hideKmlProgress();
-      }
-
-      const kml = generateKML(state.days, coordMap);
-      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.kml`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-      if (failCount > 0) showKmlToast(`${failCount} 個地點未找到座標，已略過定位`);
     }
 
     function attachSpotAutocomplete(el, spotId, dayId) {
