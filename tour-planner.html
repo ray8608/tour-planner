@@ -3002,12 +3002,14 @@
 
               <div class="help-section">
                 <div class="help-section-title">💾 本地</div>
-                <div class="help-item">• 點 <b>💾 本地 ▾</b> 展開選單，可選擇 <b>📤 匯出 JSON</b>、<b>📥 匯入 JSON</b>、<b>🗺 匯出地圖 (.kml)</b> 等功能</div>
+                <div class="help-item">• 點 <b>💾 本地 ▾</b> 展開選單，可選擇 <b>📤 匯出 JSON</b>、<b>📥 匯入 JSON</b>、<b>🗺 匯出地圖 (.kml)</b>、<b>📊 匯出試算表 (.csv)</b> 等功能</div>
                 <div class="help-item">• <b>匯出</b>：將目前行程儲存為 .json 檔案，可作為備份</div>
                 <div class="help-item">• <b>匯入</b>：選擇之前匯出的 .json 檔案還原行程（會覆蓋目前行程）</div>
                 <div class="help-item">• <b>列印 / PDF</b>：開啟瀏覽器列印對話框，可選「另存為 PDF」；建議先切換至 <b>Layout C（垂直捲動）</b>再列印，以一次輸出全部天數</div>
                 <div class="help-item">• <b>匯出行事曆 (.ics)</b>：下載 .ics 檔案，可匯入 Google 日曆、Apple 行事曆等；需先設定<b>旅行開始日期</b>才能包含正確日期</div>
                 <div class="help-item">• <b>匯出地圖 (.kml)</b>：下載 .kml 檔案，可匯入 <a href="https://mymaps.google.com" target="_blank" rel="noopener">Google My Maps</a>；每天為獨立圖層，包含景點 Pin 與路線折線。匯出時會自動查詢各景點座標（需連網）</div>
+                <div class="help-item">• <b>匯出試算表 (.csv)</b>：下載含景點名稱、時間、備註與座標的試算表，可用 Excel 或 Google Sheets 開啟</div>
+                <div class="help-item">• 景點卡片上的 <b>🔍 按鈕</b>：點擊可查詢並永久儲存該景點的地理座標（有 Google Maps API key 時使用 Places 搜尋，否則使用 Nominatim）；座標儲存後匯出 KML／CSV 時定位更精準；更改景點名稱後座標會自動清除</div>
               </div>
 
               <div class="help-section">
@@ -3055,7 +3057,7 @@
             <!-- 最後更新 -->
             <div style="padding:10px 16px 4px;border-top:1px solid var(--border);margin-top:8px">
               <div style="font-size:11px;color:var(--text-muted);line-height:1.7">
-                <b style="color:var(--text)">最後更新</b>：新增匯出地圖 (.kml) 功能——支援將行程匯出為 KML 檔，可直接匯入 Google My Maps；每天為獨立圖層，包含景點 Pin 與路線折線（2026-07-14）
+                <b style="color:var(--text)">最後更新</b>：新增景點座標儲存（🔍 查座標按鈕）、匯出前預覽確認 Dialog、匯出試算表 (.csv) 功能（2026-07-14）
               </div>
             </div>
 
