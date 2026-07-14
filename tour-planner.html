@@ -3657,6 +3657,28 @@
         if (action === 'print-trip')      { localMenuOpen = false; render(); window.print(); return; }
         if (action === 'export-ics')      { localMenuOpen = false; render(); exportICS(); return; }
         if (action === 'export-kml')      { localMenuOpen = false; render(); exportKML(); return; }
+        if (action === 'geocode-spot') {
+          const { spotId, dayId } = el.dataset;
+          el.disabled = true; el.textContent = '…';
+          geocodeSpotByButton(spotId, dayId);
+          return;
+        }
+        if (action === 'focus-spot-autocomplete') {
+          const { spotId, dayId } = el.dataset;
+          const input = document.querySelector(`.spot-name[data-spot-id="${spotId}"]`);
+          input?.focus();
+          return;
+        }
+        if (action === 'open-spot-map') {
+          const { spotId, dayId } = el.dataset;
+          const spot = state.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+          if (!spot) return;
+          const url = (spot.lat != null)
+            ? `https://maps.google.com/?q=${spot.lat},${spot.lng}`
+            : `https://maps.google.com/?q=${encodeURIComponent(spot.name)}`;
+          window.open(url, '_blank', 'noopener');
+          return;
+        }
 
         if (action === 'setting') {
           const SETTING_KEYS = ['layout', 'theme', 'defaultTransport', 'fontSize'];
