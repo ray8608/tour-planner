@@ -1921,6 +1921,44 @@
       });
     }
 
+    async function buildCoordMap() {
+      const coordMap = {};
+      state.days.forEach(day => {
+        day.spots.forEach(spot => {
+          if (spot.name?.trim() && spot.lat != null)
+            coordMap[spot.name.trim()] = { lat: spot.lat, lng: spot.lng };
+        });
+      });
+
+      const needsGeocode = new Set();
+      state.days.forEach(day => {
+        if (day.startHotelName?.trim() && !coordMap[day.startHotelName.trim()])
+          needsGeocode.add(day.startHotelName.trim());
+        if (day.endHotelName?.trim() && !coordMap[day.endHotelName.trim()])
+          needsGeocode.add(day.endHotelName.trim());
+        day.spots.forEach(spot => {
+          if (spot.name?.trim() && !coordMap[spot.name.trim()])
+            needsGeocode.add(spot.name.trim());
+        });
+      });
+
+      const names = [...needsGeocode];
+      if (names.length > 0) {
+        showKmlProgress(0, names.length);
+        try {
+          for (let i = 0; i < names.length; i++) {
+            showKmlProgress(i + 1, names.length);
+            const geo = await geocodeForKML(names[i]);
+            if (geo) coordMap[names[i]] = { lat: geo.lat, lng: geo.lng };
+          }
+        } finally {
+          hideKmlProgress();
+        }
+      }
+
+      return coordMap;
+    }
+
     function importJSON(file) {
       const reader = new FileReader();
       reader.onload = e => {
