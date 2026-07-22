@@ -1907,10 +1907,14 @@
         panel.appendChild(placeEl);
         panel.appendChild(cancelBtn);
         document.body.appendChild(overlay);
-        placeEl.addEventListener('gmp-placeselect', async ({ placePrediction }) => {
-          const place = placePrediction.toPlace();
+        placeEl.addEventListener('gmp-placeselect', async (event) => {
+          // 新版 API 事件為 { place }，舊版為 { placePrediction }
+          const place = event.place ?? event.placePrediction?.toPlace();
+          if (!place) return;
           await place.fetchFields({ fields: ['location', 'formattedAddress'] });
-          saveCoords(place.location.lat(), place.location.lng(), place.formattedAddress || null);
+          const loc = place.location ?? place.geometry?.location;
+          if (!loc) return;
+          saveCoords(loc.lat(), loc.lng(), place.formattedAddress || null);
         });
         setTimeout(() => {
           placeEl.focus();
