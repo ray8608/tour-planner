@@ -719,6 +719,7 @@
 
     /* ===== Mobile (≤600px) ===== */
     @media (max-width: 600px) {
+      .desktop-only { display: none !important; }
       .app-header { padding: 8px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
       .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .header-right-group { flex-direction: column; gap: 4px; align-items: stretch; }
@@ -2438,7 +2439,7 @@
                   data-action="open-cat-picker"
                   data-spot-id="${spot.id}" data-day-id="${dayId}"
                   title="選擇分類">${catBtnEmoji}</button>
-                ${hasName ? `<button class="btn-ghost"
+                ${hasName ? `<button class="btn-ghost desktop-only"
                   data-action="${geocodeAction}"
                   data-spot-id="${spot.id}" data-day-id="${dayId}"
                   title="${hasKey ? '以 Google Maps 搜尋座標' : '以 Nominatim 查詢座標'}"
@@ -2454,7 +2455,7 @@
                 <button class="btn-ghost" data-action="delete-spot"
                   data-spot-id="${spot.id}" data-day-id="${dayId}" title="刪除景點">✕</button>
               </div>
-              ${hasName ? `<div style="display:flex;align-items:center;gap:6px;padding:0 4px 2px">
+              ${hasName ? `<div class="desktop-only" style="display:flex;align-items:center;gap:6px;padding:0 4px 2px">
                 <button data-action="open-spot-map"
                   data-spot-id="${spot.id}" data-day-id="${dayId}"
                   style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1"
