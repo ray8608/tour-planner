@@ -1867,22 +1867,63 @@
       });
     }
 
-    function attachSpotAutocomplete(el, spotId, dayId) {
+    function showGooglePlaceSearch(spotId, dayId) {
       if (!window.google?.maps?.places) return;
-      el._autocomplete = true;
-      const ac = new google.maps.places.Autocomplete(el, { fields: ['geometry', 'formatted_address'] });
-      ac.addListener('place_changed', () => {
-        const place = ac.getPlace();
-        if (!place.geometry?.location) return;
+      const spot = state.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding-top:15vh';
+
+      const panel = document.createElement('div');
+      panel.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;width:min(420px,92vw);box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text)';
+
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:14px;font-weight:600;margin-bottom:10px';
+      title.textContent = `搜尋地點${spot?.name ? '：' + spot.name : ''}`;
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = '取消';
+      cancelBtn.style.cssText = 'margin-top:12px;padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;font-size:13px';
+      cancelBtn.addEventListener('click', () => overlay.remove());
+
+      const saveCoords = (lat, lng, address) => {
+        overlay.remove();
         setState(s => {
-          const spot = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
-          if (spot) {
-            spot.lat = place.geometry.location.lat();
-            spot.lng = place.geometry.location.lng();
-            spot.resolvedAddress = place.formatted_address || null;
-          }
+          const sp = s.days.find(d => d.id === dayId)?.spots.find(sp => sp.id === spotId);
+          if (sp) { sp.lat = lat; sp.lng = lng; sp.resolvedAddress = address || null; }
         });
-      });
+      };
+
+      panel.appendChild(title);
+      overlay.appendChild(panel);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+      if (typeof google.maps.places.PlaceAutocompleteElement !== 'undefined') {
+        const placeEl = new google.maps.places.PlaceAutocompleteElement();
+        panel.appendChild(placeEl);
+        panel.appendChild(cancelBtn);
+        document.body.appendChild(overlay);
+        placeEl.addEventListener('gmp-placeselect', async ({ placePrediction }) => {
+          const place = placePrediction.toPlace();
+          await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+          saveCoords(place.location.lat(), place.location.lng(), place.formattedAddress || null);
+        });
+        setTimeout(() => placeEl.focus(), 50);
+      } else {
+        const input = document.createElement('input');
+        input.style.cssText = 'width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box';
+        input.placeholder = '輸入地名搜尋…';
+        panel.appendChild(input);
+        panel.appendChild(cancelBtn);
+        document.body.appendChild(overlay);
+        const ac = new google.maps.places.Autocomplete(input, { fields: ['geometry', 'formatted_address'] });
+        ac.addListener('place_changed', () => {
+          const p = ac.getPlace();
+          if (!p.geometry?.location) return;
+          saveCoords(p.geometry.location.lat(), p.geometry.location.lng(), p.formatted_address || null);
+        });
+        setTimeout(() => input.focus(), 50);
+      }
     }
 
     async function geocodeSpotByButton(spotId, dayId) {
@@ -2054,6 +2095,117 @@
         a.download = `${state.tripName}-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
+      });
+    }
+
+    function showCoordManageDialog() {
+      const spotItems = [];
+      state.days.forEach((day, i) => {
+        day.spots.forEach(spot => {
+          if (!spot.name?.trim()) return;
+          spotItems.push({ spotId: spot.id, dayId: day.id, name: spot.name.trim(), dayLabel: `第${i + 1}天`, hasCoords: spot.lat != null });
+        });
+      });
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center';
+
+      const panel = document.createElement('div');
+      panel.style.cssText = [
+        'background:var(--surface)', 'border:1px solid var(--border)',
+        'border-radius:10px', 'padding:20px 24px',
+        'width:min(480px,90vw)', 'max-height:80vh',
+        'display:flex', 'flex-direction:column',
+        'box-shadow:0 8px 32px rgba(0,0,0,0.35)', 'color:var(--text)',
+      ].join(';');
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-size:15px;font-weight:600;margin-bottom:12px';
+      titleEl.textContent = '景點座標管理';
+
+      const toggleRow = document.createElement('div');
+      toggleRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:2px solid var(--border);margin-bottom:4px';
+      const selectAllCb = document.createElement('input');
+      selectAllCb.type = 'checkbox';
+      selectAllCb.id = 'coord-select-all';
+      const selectAllLabel = document.createElement('label');
+      selectAllLabel.htmlFor = 'coord-select-all';
+      selectAllLabel.style.cssText = 'font-size:13px;font-weight:500;cursor:pointer;user-select:none';
+      selectAllLabel.textContent = '全選';
+      toggleRow.appendChild(selectAllCb);
+      toggleRow.appendChild(selectAllLabel);
+
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'overflow-y:auto;flex:1;margin-bottom:12px';
+
+      const rowMap = {};
+      if (spotItems.length === 0) {
+        listEl.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:12px 0">（無景點）</div>';
+      } else {
+        spotItems.forEach(item => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = !item.hasCoords;
+          const icon = document.createElement('span');
+          icon.style.cssText = 'font-size:16px;line-height:1.4';
+          icon.textContent = item.hasCoords ? '🟢' : '🔴';
+          const nameEl = document.createElement('div');
+          nameEl.style.cssText = 'flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          nameEl.textContent = item.name;
+          const dayEl = document.createElement('div');
+          dayEl.style.cssText = 'font-size:12px;color:var(--text-muted);white-space:nowrap';
+          dayEl.textContent = item.dayLabel;
+          row.appendChild(cb); row.appendChild(icon); row.appendChild(nameEl); row.appendChild(dayEl);
+          listEl.appendChild(row);
+          rowMap[item.spotId] = { iconEl: icon, cbEl: cb };
+        });
+      }
+
+      const btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:4px';
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = '關閉';
+      cancelBtn.style.cssText = 'padding:7px 16px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text);font-size:13px;cursor:pointer';
+      const refreshBtn = document.createElement('button');
+      refreshBtn.textContent = '重新查詢勾選景點';
+      refreshBtn.style.cssText = 'padding:7px 16px;border-radius:6px;border:none;background:var(--color-accent,#2563eb);color:#fff;font-size:13px;cursor:pointer;font-weight:500';
+      btnRow.appendChild(cancelBtn); btnRow.appendChild(refreshBtn);
+
+      panel.appendChild(titleEl); panel.appendChild(toggleRow);
+      panel.appendChild(listEl); panel.appendChild(btnRow);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+
+      const close = () => overlay.remove();
+      cancelBtn.addEventListener('click', close);
+      overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+      selectAllCb.addEventListener('change', () => {
+        spotItems.forEach(item => { const r = rowMap[item.spotId]; if (r) r.cbEl.checked = selectAllCb.checked; });
+      });
+
+      refreshBtn.addEventListener('click', async () => {
+        const selected = spotItems.filter(item => rowMap[item.spotId]?.cbEl?.checked);
+        if (selected.length === 0) return;
+        refreshBtn.disabled = true;
+        cancelBtn.disabled = true;
+        for (let i = 0; i < selected.length; i++) {
+          const item = selected[i];
+          refreshBtn.textContent = `查詢中… ${i + 1} / ${selected.length}`;
+          const r = rowMap[item.spotId];
+          if (r) r.iconEl.textContent = '⏳';
+          const geo = await nominatimGeocode(item.name);
+          setState(s => {
+            const sp = s.days.find(d => d.id === item.dayId)?.spots.find(sp => sp.id === item.spotId);
+            if (sp) { sp.lat = geo?.lat ?? null; sp.lng = geo?.lng ?? null; sp.resolvedAddress = geo?.address ?? null; }
+          });
+          if (r) r.iconEl.textContent = geo ? '🟢' : '🔴';
+        }
+        refreshBtn.disabled = false;
+        cancelBtn.disabled = false;
+        refreshBtn.textContent = '重新查詢勾選景點';
       });
     }
 
@@ -3141,8 +3293,13 @@
                     </button>
                     <button data-action="export-csv"
                       style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
-                             color:var(--text);font-size:13px;cursor:pointer">
+                             border-bottom:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer">
                       📊 匯出試算表 (.csv)
+                    </button>
+                    <button data-action="manage-coords"
+                      style="width:100%;text-align:left;padding:8px 12px;background:none;border:none;
+                             color:var(--text);font-size:13px;cursor:pointer">
+                      📍 景點座標管理
                     </button>
                   </div>` : ''}
               </div>
@@ -3820,6 +3977,7 @@
         if (action === 'export-ics')      { localMenuOpen = false; render(); exportICS(); return; }
         if (action === 'export-kml')      { localMenuOpen = false; render(); exportKML(); return; }
         if (action === 'export-csv')      { localMenuOpen = false; render(); exportCSV(); return; }
+        if (action === 'manage-coords')   { localMenuOpen = false; render(); showCoordManageDialog(); return; }
         if (action === 'geocode-spot') {
           const { spotId, dayId } = el.dataset;
           el.disabled = true; el.textContent = '…';
@@ -3828,8 +3986,9 @@
         }
         if (action === 'focus-spot-autocomplete') {
           const { spotId, dayId } = el.dataset;
-          const input = document.querySelector(`.spot-name[data-spot-id="${spotId}"]`);
-          input?.focus();
+          const key = state.settings.googleMapsApiKey;
+          if (!key || key === 'NONE') return;
+          loadGoogleMapsAPI(key).then(() => showGooglePlaceSearch(spotId, dayId));
           return;
         }
         if (action === 'open-spot-map') {
@@ -4426,15 +4585,6 @@
         if (mod && e.shiftKey && e.key === 'z') { e.preventDefault(); redo(); }
       });
 
-      document.addEventListener('focusin', e => {
-        const key = state.settings.googleMapsApiKey;
-        if (!key || key === 'NONE') return;
-        if (!e.target.classList.contains('spot-name')) return;
-        if (e.target._autocomplete) return;
-        const { spotId, dayId } = e.target.dataset;
-        if (!spotId || !dayId) return;
-        loadGoogleMapsAPI(key).then(() => attachSpotAutocomplete(e.target, spotId, dayId));
-      });
     }
 
     async function handleImportParam() {
