@@ -1882,7 +1882,7 @@
       title.textContent = `搜尋地點${spot?.name ? '：' + spot.name : ''}`;
       const hint = document.createElement('div');
       hint.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:10px';
-      hint.textContent = '在下方輸入框搜尋，從下拉清單選取地點即可儲存座標';
+      hint.textContent = '在下方輸入框搜尋，從下拉清單選取地點即可儲存座標（Google Maps）';
 
       const cancelBtn = document.createElement('button');
       cancelBtn.textContent = '取消';
@@ -1927,11 +1927,18 @@
         if (spot?.name) input.value = spot.name;
         panel.appendChild(input);
         panel.appendChild(cancelBtn);
+        // .pac-container 預設 z-index:1000，低於 overlay 的 10001，需提升才看得見下拉清單
+        const pacStyle = document.createElement('style');
+        pacStyle.textContent = '.pac-container{z-index:10002!important}';
+        document.head.appendChild(pacStyle);
+        cancelBtn.addEventListener('click', () => pacStyle.remove());
+        overlay.addEventListener('click', e => { if (e.target === overlay) pacStyle.remove(); });
         document.body.appendChild(overlay);
         const ac = new google.maps.places.Autocomplete(input, { fields: ['geometry', 'formatted_address'] });
         ac.addListener('place_changed', () => {
           const p = ac.getPlace();
           if (!p.geometry?.location) return;
+          pacStyle.remove();
           saveCoords(p.geometry.location.lat(), p.geometry.location.lng(), p.formatted_address || null);
         });
         setTimeout(() => { input.focus(); input.select(); }, 50);
@@ -2214,7 +2221,7 @@
         cancelBtn.disabled = true;
         for (let i = 0; i < selected.length; i++) {
           const item = selected[i];
-          refreshBtn.textContent = `查詢中… ${i + 1} / ${selected.length}`;
+          refreshBtn.textContent = `Nominatim 查詢中… ${i + 1} / ${selected.length}`;
           const r = rowMap[item.spotId];
           if (r) r.iconEl.textContent = '⏳';
           const geo = await nominatimGeocode(item.name);
@@ -4022,6 +4029,7 @@
         if (action === 'geocode-spot') {
           const { spotId, dayId } = el.dataset;
           el.disabled = true; el.textContent = '…';
+          showKmlToast('🔍 以 Nominatim 查詢座標（Photon 備援）');
           geocodeSpotByButton(spotId, dayId);
           return;
         }
