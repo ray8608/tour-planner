@@ -1927,11 +1927,21 @@
           for (let i = 0; i < names.length; i++) {
             showKmlProgress(i + 1, names.length);
             const geo = await geocodeForKML(names[i]);
-            if (geo) coordMap[names[i]] = { lat: geo.lat, lng: geo.lng };
+            if (geo) coordMap[names[i]] = { lat: geo.lat, lng: geo.lng, address: geo.address || null };
           }
         } finally {
           hideKmlProgress();
         }
+        // 將本次 geocode 結果寫回 spot 物件，讓卡片 UI 同步顯示 🟢
+        setState(s => {
+          s.days.forEach(day => {
+            day.spots.forEach(spot => {
+              if (!spot.name?.trim() || spot.lat != null) return;
+              const c = coordMap[spot.name.trim()];
+              if (c) { spot.lat = c.lat; spot.lng = c.lng; spot.resolvedAddress = c.address || null; }
+            });
+          });
+        });
       }
 
       return coordMap;
