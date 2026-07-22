@@ -1878,8 +1878,11 @@
       panel.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;width:min(420px,92vw);box-shadow:0 8px 32px rgba(0,0,0,0.3);color:var(--text)';
 
       const title = document.createElement('div');
-      title.style.cssText = 'font-size:14px;font-weight:600;margin-bottom:10px';
+      title.style.cssText = 'font-size:14px;font-weight:600;margin-bottom:4px';
       title.textContent = `搜尋地點${spot?.name ? '：' + spot.name : ''}`;
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:11px;color:var(--text-muted);margin-bottom:10px';
+      hint.textContent = '在下方輸入框搜尋，從下拉清單選取地點即可儲存座標';
 
       const cancelBtn = document.createElement('button');
       cancelBtn.textContent = '取消';
@@ -1895,6 +1898,7 @@
       };
 
       panel.appendChild(title);
+      panel.appendChild(hint);
       overlay.appendChild(panel);
       overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
@@ -2132,7 +2136,7 @@
       titleEl.textContent = '景點座標管理';
 
       const toggleRow = document.createElement('div');
-      toggleRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:2px solid var(--border);margin-bottom:4px';
+      toggleRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:2px solid var(--border);margin-bottom:4px;flex-wrap:wrap';
       const selectAllCb = document.createElement('input');
       selectAllCb.type = 'checkbox';
       selectAllCb.id = 'coord-select-all';
@@ -2140,8 +2144,12 @@
       selectAllLabel.htmlFor = 'coord-select-all';
       selectAllLabel.style.cssText = 'font-size:13px;font-weight:500;cursor:pointer;user-select:none';
       selectAllLabel.textContent = '全選';
+      const selectFailBtn = document.createElement('button');
+      selectFailBtn.textContent = '所有失敗景點';
+      selectFailBtn.style.cssText = 'font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:none;color:var(--text);cursor:pointer;margin-left:4px';
       toggleRow.appendChild(selectAllCb);
       toggleRow.appendChild(selectAllLabel);
+      toggleRow.appendChild(selectFailBtn);
 
       const listEl = document.createElement('div');
       listEl.style.cssText = 'overflow-y:auto;flex:1;margin-bottom:12px';
@@ -2194,6 +2202,11 @@
         spotItems.forEach(item => { const r = rowMap[item.spotId]; if (r) r.cbEl.checked = selectAllCb.checked; });
       });
 
+      selectFailBtn.addEventListener('click', () => {
+        selectAllCb.checked = false;
+        spotItems.forEach(item => { const r = rowMap[item.spotId]; if (r) r.cbEl.checked = !item.hasCoords; });
+      });
+
       refreshBtn.addEventListener('click', async () => {
         const selected = spotItems.filter(item => rowMap[item.spotId]?.cbEl?.checked);
         if (selected.length === 0) return;
@@ -2209,6 +2222,7 @@
             const sp = s.days.find(d => d.id === item.dayId)?.spots.find(sp => sp.id === item.spotId);
             if (sp) { sp.lat = geo?.lat ?? null; sp.lng = geo?.lng ?? null; sp.resolvedAddress = geo?.address ?? null; }
           });
+          item.hasCoords = !!geo;
           if (r) r.iconEl.textContent = geo ? '🟢' : '🔴';
         }
         refreshBtn.disabled = false;
@@ -3530,19 +3544,33 @@
 
     let _nominatimLastReq = 0;
     async function nominatimGeocode(name) {
+      const encoded = encodeURIComponent(name);
+      // Nominatim: max 1 req/sec; use 2s gap for safety
       const now = Date.now();
-      const wait = 1100 - (now - _nominatimLastReq);
+      const wait = 2000 - (now - _nominatimLastReq);
       if (wait > 0 && _nominatimLastReq > 0) await new Promise(r => setTimeout(r, wait));
       _nominatimLastReq = Date.now();
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`;
       try {
-        const res = await fetch(url, {
-          headers: { 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' }
-        });
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1`,
+          { headers: { 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), address: data[0].display_name };
+        }
+      } catch {}
+      // Fallback: Photon (komoot) — no rate-limit issues, CORS-friendly
+      try {
+        const res = await fetch(`https://photon.komoot.io/api/?q=${encoded}&limit=1`);
         if (!res.ok) return null;
         const data = await res.json();
-        if (!data.length) return null;
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), address: data[0].display_name };
+        const f = data.features?.[0];
+        if (!f) return null;
+        const [lng, lat] = f.geometry.coordinates;
+        const p = f.properties;
+        const address = [p.name, p.street, p.city, p.country].filter(Boolean).join(', ');
+        return { lat, lng, address };
       } catch { return null; }
     }
 
