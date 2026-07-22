@@ -1908,11 +1908,19 @@
           await place.fetchFields({ fields: ['location', 'formattedAddress'] });
           saveCoords(place.location.lat(), place.location.lng(), place.formattedAddress || null);
         });
-        setTimeout(() => placeEl.focus(), 50);
+        setTimeout(() => {
+          placeEl.focus();
+          if (spot?.name) {
+            try { placeEl.value = spot.name; } catch {}
+            const inner = placeEl.shadowRoot?.querySelector('input');
+            if (inner) { inner.value = spot.name; inner.dispatchEvent(new Event('input', { bubbles: true })); }
+          }
+        }, 80);
       } else {
         const input = document.createElement('input');
         input.style.cssText = 'width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--bg);color:var(--text);outline:none;box-sizing:border-box';
         input.placeholder = '輸入地名搜尋…';
+        if (spot?.name) input.value = spot.name;
         panel.appendChild(input);
         panel.appendChild(cancelBtn);
         document.body.appendChild(overlay);
@@ -1922,7 +1930,7 @@
           if (!p.geometry?.location) return;
           saveCoords(p.geometry.location.lat(), p.geometry.location.lng(), p.formatted_address || null);
         });
-        setTimeout(() => input.focus(), 50);
+        setTimeout(() => { input.focus(); input.select(); }, 50);
       }
     }
 
@@ -3520,11 +3528,16 @@
       return segments;
     }
 
+    let _nominatimLastReq = 0;
     async function nominatimGeocode(name) {
+      const now = Date.now();
+      const wait = 1100 - (now - _nominatimLastReq);
+      if (wait > 0 && _nominatimLastReq > 0) await new Promise(r => setTimeout(r, wait));
+      _nominatimLastReq = Date.now();
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=1`;
       try {
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'tour-planner', 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' }
+          headers: { 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' }
         });
         if (!res.ok) return null;
         const data = await res.json();
