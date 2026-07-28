@@ -310,6 +310,14 @@ function renderSettingsPanel(state, ctx) {
                  value="${escapeAttr(s.mapsKey || "")}" placeholder="貼上 API Key" aria-label="Google Maps API Key" autocomplete="off" />
         </div>
 
+        <div class="set-row set-row--col">
+          <span class="set-label">工具<small>（批次操作，透過免費 OpenStreetMap 服務）</small></span>
+          <div class="data-grid">
+            <button class="btn btn--ghost" data-action="open-coord-manager" title="批次查詢景點座標">🔍 查座標</button>
+            <button class="btn btn--ghost" data-action="auto-fill-all" title="自動填入所有天交通時間">⏱ 填通勤</button>
+          </div>
+        </div>
+
         <div class="set-row set-row--col set-data">
           <span class="set-label">資料<small>（匯出 / 匯入行程）</small></span>
           <div class="data-grid">
@@ -363,6 +371,14 @@ function renderHelpOverlay() {
           <p class="help-item">• <b>＋ 新增一天</b> 增加天數；<b>＋ 新增景點</b> 在當天加入景點，可設定名稱、停留時間、備註與分類。</p>
           <p class="help-item">• 景點之間可設定<b>交通方式</b>與<b>交通時間</b>，時間軸會自動累加計算每站抵達／離開時間。</p>
           <p class="help-item">• 拖曳景點卡片可<b>調整順序</b>；每天可設定<b>出發地</b>與<b>當晚住宿</b>。</p>
+          <p class="help-item">• 每段路線可點 <b>⏱</b> 自動估算單段交通時間；每天底部 <b>⏱ 自動填通勤</b> 可批次填入當天所有段。</p>
+        </section>
+
+        <section class="help-section">
+          <h3 class="help-section__title">🔧 批次工具（設定面板）</h3>
+          <p class="help-item">• <b>🔍 查座標</b>：列出所有景點並批次查詢地理座標（🟢 已定位 / 🔴 未定位），供匯出 KML／CSV 定位更精準。</p>
+          <p class="help-item">• <b>⏱ 填通勤</b>：一鍵估算<b>所有天</b>各段交通時間，可選是否<b>覆蓋已有時間</b>並設定每段<b>緩衝分鐘</b>（供停車／找路預留）。</p>
+          <p class="help-note">※ 皆透過免費 OpenStreetMap 服務（Nominatim + OSRM），逐段查詢較慢屬正常；大眾運輸以開車路線近似。</p>
         </section>
 
         <section class="help-section">
@@ -386,7 +402,7 @@ ${cloudSection}
         </section>
       </div>
       <div class="help-panel__foot">
-        <b>最後更新</b>：新增雲端共用（☁️ 共用：公開／暗號分組、覆蓋、管理、分享連結）與本使用說明頁面（2026-07-28）
+        <b>最後更新</b>：補回批次工具（🔍 查座標、⏱ 自動填通勤含緩衝時間）、新增雲端共用與本使用說明頁面（2026-07-28）
       </div>
     </aside>
   `;

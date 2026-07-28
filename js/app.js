@@ -19,6 +19,7 @@ import {
 import { renderApp } from "./render/index.js";
 import { initDrag } from "./drag.js";
 import { initShare, openShare, handleImportParam } from "./share.js";
+import { initTools, openCoordManager, openCommuteFill } from "./tools.js";
 import { makeDay, makeSpot } from "./state.js";
 import { getDayIsoDate, hotelStartId, hotelEndId, routeKey } from "./utils.js";
 import * as weather from "./services/weather.js";
@@ -365,6 +366,18 @@ function onClick(e) {
       autoRoute(dayId, rk, el);
       break;
 
+    case "open-coord-manager":
+      openCoordManager();
+      return;
+
+    case "auto-fill-day":
+      openCommuteFill(dayId);
+      return;
+
+    case "auto-fill-all":
+      openCommuteFill("all");
+      return;
+
     case "undo":
       undo();
       break;
@@ -666,6 +679,7 @@ function init() {
   document.addEventListener("keydown", onKeydown);
   initDrag(root);
   initShare();
+  initTools();
   subscribe(render);
   render();
   handleImportParam(); // ?import=<docId> 分享連結

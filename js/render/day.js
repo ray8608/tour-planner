@@ -50,6 +50,8 @@ export function renderDayPanel(state, day, ctx = {}) {
       ${renderTimeline(state, day, slots)}
 
       <div class="app-header__actions" style="justify-content:flex-end;margin-top:16px;gap:8px">
+        <button class="btn btn--ghost" data-action="auto-fill-day" data-day="${escapeAttr(day.id)}"
+                title="自動查詢並填入本天各段交通時間">⏱ 自動填通勤</button>
         <button class="btn btn--ghost" data-action="copy-day" data-day="${escapeAttr(day.id)}">⧉ 複製此天</button>
         <button class="btn btn--ghost btn--danger" data-action="delete-day" data-day="${escapeAttr(day.id)}"
                 ${state.days.length <= 1 ? "disabled" : ""}>🗑 刪除此天</button>

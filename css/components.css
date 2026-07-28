@@ -1019,3 +1019,100 @@ html[data-trips="open"] .trip-menu { transform: translateX(0); }
 
 /* type=text 遮蔽字元，避開瀏覽器密碼管理員自動填入 */
 .pw-mask { -webkit-text-security: disc; text-security: disc; }
+
+/* ---------------- 批次工具對話框（tools.js；居中 modal） ---------------- */
+.tool-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: color-mix(in oklab, var(--text) 40%, transparent);
+  backdrop-filter: blur(2px);
+}
+.tool-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 131;
+  width: min(460px, calc(100vw - 32px));
+  max-height: 84dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-4);
+  overflow: hidden;
+}
+.tool-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+.tool-desc {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.tool-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.tool-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  user-select: none;
+}
+.tool-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+.tool-field small { color: var(--text-muted); font-weight: 400; }
+.tool-field .share-input { width: 6rem; }
+.tool-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+.tool-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.tool-icon { font-size: var(--fs-base); line-height: 1.4; }
+.tool-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-row__day { font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
+.tool-empty { padding: var(--sp-4) 0; text-align: center; color: var(--text-muted); }
+.tool-status {
+  min-height: 1.2em;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.tool-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
