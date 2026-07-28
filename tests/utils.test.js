@@ -6,6 +6,7 @@ import {
   fmtMins,
   routeKey,
   getDayDate,
+  getDayDateTime,
 } from "../js/utils.js";
 
 describe("escapeHtml", () => {
@@ -69,5 +70,26 @@ describe("getDayDate", () => {
   });
   it("無起始日回傳空字串", () => {
     expect(getDayDate("", 0)).toBe("");
+  });
+});
+
+describe("getDayDateTime", () => {
+  it("依起始日 + 索引 + 出發時間組出 Date", () => {
+    const d = getDayDateTime("2026-07-27", 1, "08:30");
+    expect(d).toBeInstanceOf(Date);
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(6); // 7 月
+    expect(d.getDate()).toBe(28); // +1 天
+    expect(d.getHours()).toBe(8);
+    expect(d.getMinutes()).toBe(30);
+  });
+  it("無出發時間預設上午 9:00", () => {
+    const d = getDayDateTime("2026-07-27", 0, "");
+    expect(d.getHours()).toBe(9);
+    expect(d.getMinutes()).toBe(0);
+  });
+  it("無起始日回傳 null", () => {
+    expect(getDayDateTime("", 0, "08:00")).toBeNull();
+    expect(getDayDateTime(null, 0, "08:00")).toBeNull();
   });
 });

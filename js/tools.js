@@ -13,8 +13,8 @@
 
 import { escapeHtml, escapeAttr, routeKey, hotelStartId, hotelEndId } from "./utils.js";
 import { getState, commit } from "./state.js";
-import { geocode } from "./services/geocode.js";
-import { osrmRoute, osrmProfileFor, secondsToMinutes } from "./services/route.js";
+import { secondsToMinutes } from "./services/route.js";
+import { geocodePlace, routeSeconds, navServiceName, activeGoogleKey, departureForDay, isGoogleAuthFailed } from "./services/nav.js";
 
 let mount = null;
 
@@ -43,6 +43,13 @@ function closeTools() {
 }
 
 const cssId = (id) => (window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/"/g, '\\"'));
+
+/** 啟用了 Google 但金鑰驗證失敗時，於完成訊息追加提醒（否則空字串） */
+function googleWarnSuffix() {
+  return activeGoogleKey() && isGoogleAuthFailed()
+    ? "（⚠ Google 驗證失敗，已改用免費服務，請檢查 API Key 並重新整理頁面）"
+    : "";
+}
 
 /* ---------------- 景點座標管理 ---------------- */
 
@@ -80,7 +87,7 @@ export function openCoordManager() {
   openWith(`
     <div class="tool-dialog" role="dialog" aria-modal="true" aria-label="景點座標管理">
       <div class="tool-title">🔍 景點座標管理</div>
-      <p class="tool-desc">🟢 已定位 / 🔴 未定位。勾選後可批次查詢座標（供匯出 KML／CSV 定位更精準）。透過免費 OpenStreetMap 服務，查詢較慢請耐心等候。</p>
+      <p class="tool-desc">🟢 已定位 / 🔴 未定位。勾選後可批次查詢座標（供匯出 KML／CSV 定位更精準）。透過${escapeHtml(navServiceName())}查詢，較慢請耐心等候。</p>
       <div class="tool-bar">
         <label class="tool-check"><input type="checkbox" id="tool-all" /> 全選</label>
         <button class="btn btn--sm btn--ghost" id="tool-fail">僅選未定位</button>
@@ -118,7 +125,7 @@ export function openCoordManager() {
       statusEl.textContent = `查詢中… ${i + 1} / ${selected.length}`;
       const icon = iconFor(it.spotId);
       if (icon) icon.textContent = "⏳";
-      const geo = await geocode(it.name);
+      const geo = await geocodePlace(it.name);
       commit((d) => {
         const sp = d.days.find((x) => x.id === it.dayId)?.spots.find((x) => x.id === it.spotId);
         if (sp) {
@@ -133,7 +140,7 @@ export function openCoordManager() {
       if (cb) cb.checked = !geo;
       geo ? ok++ : fail++;
     }
-    statusEl.textContent = `完成：成功 ${ok} 個` + (fail ? `、失敗 ${fail} 個（找不到地點）` : "");
+    statusEl.textContent = `完成：成功 ${ok} 個` + (fail ? `、失敗 ${fail} 個（找不到地點）` : "") + googleWarnSuffix();
     refreshBtn.disabled = false;
   });
 }
@@ -187,7 +194,7 @@ async function resolveNodeCoords(seg, endpoint, cache) {
 
 function cachedGeocode(name, cache) {
   if (cache.has(name)) return cache.get(name);
-  const p = geocode(name);
+  const p = geocodePlace(name);
   cache.set(name, p);
   return p;
 }
@@ -206,7 +213,7 @@ export function openCommuteFill(scope) {
   openWith(`
     <div class="tool-dialog" role="dialog" aria-modal="true" aria-label="自動填通勤時間">
       <div class="tool-title">⏱ 自動填通勤時間${scopeLabel}</div>
-      <p class="tool-desc">共 ${fillable.length} 段可估算路線，透過免費 OpenStreetMap 服務逐段查詢，較慢請耐心等候。大眾運輸以開車路線近似。</p>
+      <p class="tool-desc">共 ${fillable.length} 段可估算路線，透過${escapeHtml(navServiceName())}逐段查詢，較慢請耐心等候。${activeGoogleKey() ? "大眾運輸會查真實班次耗時。" : "大眾運輸以開車路線近似。"}</p>
       <label class="tool-check"><input type="checkbox" id="tool-overwrite" checked /> 覆蓋已填入的時間</label>
       <label class="tool-field">
         <span>緩衝時間（分鐘）<small>　每段交通額外加上，供停車／找路等預留</small></span>
@@ -239,7 +246,7 @@ export function openCommuteFill(scope) {
       const from = await resolveNodeCoords(seg, "from", cache);
       const to = await resolveNodeCoords(seg, "to", cache);
       if (!from || !to) { fail++; continue; }
-      const secs = await osrmRoute(from, to, osrmProfileFor(seg.transport));
+      const secs = await routeSeconds(from, to, seg.transport, departureForDay(seg.dayId));
       if (secs == null) { fail++; continue; }
       const mins = secondsToMinutes(secs) + bufferMins;
       commit((d) => {
@@ -251,7 +258,7 @@ export function openCommuteFill(scope) {
     let msg = `完成：成功 ${ok} 段`;
     if (skippedExisting) msg += `、略過 ${skippedExisting} 段（已有時間）`;
     if (fail) msg += `、失敗 ${fail} 段（找不到地點）`;
-    statusEl.textContent = msg;
+    statusEl.textContent = msg + googleWarnSuffix();
     runBtn.disabled = false;
   });
 }

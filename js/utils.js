@@ -81,6 +81,22 @@ export function getDayIsoDate(tripStartDate, dayIndex) {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * 依 tripStartDate + 天索引 + "HH:MM" 出發時間，回傳該時刻的 Date；
+ * 無 tripStartDate 或日期無效回傳 null。無 startTime 時預設當天上午 9:00。
+ * 供 Google 大眾運輸查詢帶入實際出發時刻（而非「現在」）。
+ */
+export function getDayDateTime(tripStartDate, dayIndex, startTime) {
+  if (!tripStartDate) return null;
+  const d = new Date(tripStartDate + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + dayIndex);
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(startTime || "").trim());
+  if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  else d.setHours(9, 0, 0, 0);
+  return d;
+}
+
 /** 7 個景點分類 */
 export const SPOT_CATEGORIES = [
   { id: "sightseeing", label: "景點", emoji: "🏛" },

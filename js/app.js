@@ -23,8 +23,8 @@ import { initTools, openCoordManager, openCommuteFill } from "./tools.js";
 import { makeDay, makeSpot } from "./state.js";
 import { getDayIsoDate, hotelStartId, hotelEndId, routeKey } from "./utils.js";
 import * as weather from "./services/weather.js";
-import { geocode } from "./services/geocode.js";
-import { osrmRoute, osrmProfileFor, secondsToMinutes } from "./services/route.js";
+import { secondsToMinutes } from "./services/route.js";
+import { geocodePlace, routeSeconds, departureForDay } from "./services/nav.js";
 import { exportJson, buildIcs, buildKml, buildCsv, validateImport, safeFileStem } from "./services/export.js";
 
 const WEATHER_TTL_MS = 3 * 60 * 60 * 1000;
@@ -615,7 +615,7 @@ async function geocodeSpot(dayId, spotId, btn) {
   if (!spot || !spot.name.trim()) return;
   btn.classList.add("is-busy");
   try {
-    const geo = await geocode(spot.name.trim());
+    const geo = await geocodePlace(spot.name.trim());
     if (geo) {
       commit((d) => {
         const s = d.days.find((x) => x.id === dayId)?.spots.find((x) => x.id === spotId);
@@ -635,13 +635,13 @@ async function resolveEndpointCoords(day, id) {
   if (id === hotelStartId(day.id) || id === hotelEndId(day.id)) {
     const name = ((id === hotelStartId(day.id) ? day.startHotelName : day.endHotelName) || "").trim();
     if (!name) return null;
-    return geocode(name);
+    return geocodePlace(name);
   }
   const spot = day.spots.find((s) => s.id === id);
   if (!spot) return null;
   if (spot.lat != null && spot.lng != null) return { lat: spot.lat, lng: spot.lng };
   if (!spot.name.trim()) return null;
-  return geocode(spot.name.trim());
+  return geocodePlace(spot.name.trim());
 }
 
 /** 以 OSRM 估算某段交通時間並填入 recordedTime */
@@ -657,7 +657,7 @@ async function autoRoute(dayId, rk, btn) {
       resolveEndpointCoords(day, toId),
     ]);
     if (!from || !to) return;
-    const seconds = await osrmRoute(from, to, osrmProfileFor(route.transport));
+    const seconds = await routeSeconds(from, to, route.transport, departureForDay(dayId));
     if (seconds == null) return;
     const mins = secondsToMinutes(seconds);
     commit((d) => {

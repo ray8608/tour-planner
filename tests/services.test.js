@@ -14,6 +14,11 @@ import {
   mapsNavUrl,
   mapsDirectionsUrl,
 } from "../js/services/route.js";
+import {
+  googleTravelMode,
+  parseGeocoderResults,
+  parseDirectionsSeconds,
+} from "../js/services/gmaps.js";
 
 describe("weather.wmoToEmoji", () => {
   it("晴天 / 雷雨 / 未知", () => {
@@ -136,5 +141,35 @@ describe("route 工具", () => {
   it("Google Maps URL", () => {
     expect(mapsNavUrl("東京鐵塔")).toContain("query=%E6%9D%B1%E4%BA%AC%E9%90%B5%E5%A1%94");
     expect(mapsDirectionsUrl("A", "B", "walking")).toContain("travelmode=walking");
+  });
+});
+
+describe("gmaps 解析", () => {
+  it("googleTravelMode 對應交通方式，未知回退 DRIVING", () => {
+    expect(googleTravelMode("driving")).toBe("DRIVING");
+    expect(googleTravelMode("walking")).toBe("WALKING");
+    expect(googleTravelMode("transit")).toBe("TRANSIT");
+    expect(googleTravelMode("boat")).toBe("DRIVING");
+  });
+
+  it("parseGeocoderResults 支援函式式 location（google.maps.LatLng）", () => {
+    const results = [{ geometry: { location: { lat: () => 35.68, lng: () => 139.76 } }, formatted_address: "Tokyo" }];
+    expect(parseGeocoderResults(results)).toEqual({ lat: 35.68, lng: 139.76, address: "Tokyo" });
+  });
+
+  it("parseGeocoderResults 支援數值式 location 並在缺值時回傳 null", () => {
+    expect(parseGeocoderResults([{ geometry: { location: { lat: 1, lng: 2 } } }])).toEqual({ lat: 1, lng: 2, address: "" });
+    expect(parseGeocoderResults([])).toBeNull();
+    expect(parseGeocoderResults(null)).toBeNull();
+    expect(parseGeocoderResults([{ geometry: {} }])).toBeNull();
+  });
+
+  it("parseDirectionsSeconds 取第一段 legs.duration.value", () => {
+    expect(parseDirectionsSeconds({ routes: [{ legs: [{ duration: { value: 930 } }] }] })).toBe(930);
+    expect(parseDirectionsSeconds({ routes: [] })).toBeNull();
+    expect(parseDirectionsSeconds(null)).toBeNull();
+  });
+  it("parseDirectionsSeconds 保留合法的 0（不誤判為失敗）", () => {
+    expect(parseDirectionsSeconds({ routes: [{ legs: [{ duration: { value: 0 } }] }] })).toBe(0);
   });
 });

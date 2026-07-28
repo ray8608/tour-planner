@@ -301,7 +301,7 @@ function renderSettingsPanel(state, ctx) {
         </div>
 
         <div class="set-row set-row--col">
-          <span class="set-label">Google Maps API Key<small>（選填，啟用進階導航）</small></span>
+          <span class="set-label">Google Maps API Key<small>（選填，啟用後座標／路線改用 Google）</small></span>
           <div class="seg" role="group" aria-label="Google Maps 模式">
             <button class="seg-btn ${!mapsOn ? "is-active" : ""}" data-action="set-maps-mode" data-value="off" aria-pressed="${!mapsOn}">停用</button>
             <button class="seg-btn ${mapsOn ? "is-active" : ""}" data-action="set-maps-mode" data-value="on" aria-pressed="${mapsOn}">啟用</button>
@@ -311,7 +311,7 @@ function renderSettingsPanel(state, ctx) {
         </div>
 
         <div class="set-row set-row--col">
-          <span class="set-label">工具<small>（批次操作，透過免費 OpenStreetMap 服務）</small></span>
+          <span class="set-label">工具<small>（批次操作；未填 API Key 時用免費 OpenStreetMap）</small></span>
           <div class="data-grid">
             <button class="btn btn--ghost" data-action="open-coord-manager" title="批次查詢景點座標">🔍 查座標</button>
             <button class="btn btn--ghost" data-action="auto-fill-all" title="自動填入所有天交通時間">⏱ 填通勤</button>
@@ -378,7 +378,7 @@ function renderHelpOverlay() {
           <h3 class="help-section__title">🔧 批次工具（設定面板）</h3>
           <p class="help-item">• <b>🔍 查座標</b>：列出所有景點並批次查詢地理座標（🟢 已定位 / 🔴 未定位），供匯出 KML／CSV 定位更精準。</p>
           <p class="help-item">• <b>⏱ 填通勤</b>：一鍵估算<b>所有天</b>各段交通時間，可選是否<b>覆蓋已有時間</b>並設定每段<b>緩衝分鐘</b>（供停車／找路預留）。</p>
-          <p class="help-note">※ 皆透過免費 OpenStreetMap 服務（Nominatim + OSRM），逐段查詢較慢屬正常；大眾運輸以開車路線近似。</p>
+          <p class="help-note">※ 預設透過免費 OpenStreetMap 服務（Nominatim + OSRM），逐段查詢較慢屬正常，大眾運輸以開車路線近似；於設定填入 Google Maps API Key 後改用 Google（座標更準、大眾運輸查真實班次）。</p>
         </section>
 
         <section class="help-section">
@@ -398,11 +398,11 @@ ${cloudSection}
           <p class="help-item">• <b>版面</b>：A 頁籤 / B 側邊欄 / C 垂直捲動；另可調<b>字體大小</b>。</p>
           <p class="help-item">• <b>主題</b>：手帳（預設）/ 明亮 / 暗色 / 霓虹；頂部色點可快速切換。</p>
           <p class="help-item">• <b>天氣城市</b>：輸入城市名顯示每天天氣（Open-Meteo，僅約未來 16 天），可選天氣模型。</p>
-          <p class="help-item">• <b>Google Maps API Key</b>（選填）：啟用後自動填通勤與景點座標查詢更精準，否則使用免費 Nominatim。</p>
+          <p class="help-item">• <b>Google Maps API Key</b>（選填）：啟用並填入後，景點座標查詢與自動填通勤改用 <b>Google Maps</b>（座標更準、大眾運輸查真實班次；Google 查不到時自動回退 OSM）；未填則全程使用免費 Nominatim / OSRM。</p>
         </section>
       </div>
       <div class="help-panel__foot">
-        <b>最後更新</b>：補回批次工具（🔍 查座標、⏱ 自動填通勤含緩衝時間）、新增雲端共用與本使用說明頁面（2026-07-28）
+        <b>最後更新</b>：座標查詢與自動填通勤接上 Google Maps（填入 API Key 後啟用，含大眾運輸真實班次，失敗自動回退 OSM）；補回批次工具（🔍 查座標、⏱ 自動填通勤含緩衝時間）與雲端共用（2026-07-28）
       </div>
     </aside>
   `;
