@@ -1,0 +1,208 @@
+/* ============================================================
+   layout.css — 全站骨架、頁首、分頁、日面板、RWD
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100dvh;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 暖手帳的細微紙紋（僅 cream，透過 --bg-grain 控制強度） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--bg-grain);
+  background-image:
+    radial-gradient(circle at 25% 15%, rgba(160, 110, 40, 0.5) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 75% 65%, rgba(160, 110, 40, 0.4) 0.5px, transparent 0.5px);
+  background-size: 7px 7px, 11px 11px;
+}
+
+.boot { padding: var(--sp-8); text-align: center; color: var(--text-muted); }
+
+/* ---------------- App shell ---------------- */
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--sp-4) var(--sp-8);
+}
+
+/* ---------------- 頁首 ---------------- */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 0 calc(-1 * var(--sp-4));
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.2) blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.app-header__top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+.app-header__titles { flex: 1 1 auto; min-width: 0; }
+
+.trip-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-hero);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  color: var(--text);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+.trip-title::placeholder { color: var(--text-muted); opacity: 0.55; }
+.trip-title:focus-visible { outline: none; box-shadow: 0 2px 0 0 var(--accent); }
+
+.trip-subtitle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.trip-subtitle .date-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+}
+.trip-subtitle .date-input:hover { border-color: var(--border); }
+.trip-subtitle .date-input:focus-visible { outline: none; box-shadow: var(--ring); border-color: var(--accent); }
+
+.app-header__actions { display: flex; align-items: center; gap: var(--sp-1); flex: 0 0 auto; }
+
+/* ---------------- 分頁列（layout A：天分頁） ---------------- */
+.day-tabs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: var(--sp-4) 0 var(--sp-2);
+  margin-bottom: var(--sp-3);
+  -webkit-overflow-scrolling: touch;
+}
+.day-tabs::-webkit-scrollbar { height: 6px; }
+.day-tabs::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-full); }
+
+/* ---------------- 日面板 ---------------- */
+.day-panel { animation: panel-in var(--dur) var(--ease-out-expo); }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.day-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-3) var(--sp-5);
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px dashed var(--border-strong);
+}
+.day-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  color: var(--text);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  flex: 1 1 12ch;
+  min-width: 10ch;
+}
+.day-title:focus-visible { outline: none; box-shadow: 0 2px 0 0 var(--accent); }
+.day-head__meta { display: flex; align-items: center; gap: var(--sp-4) var(--sp-5); flex-wrap: wrap; }
+
+/* ---------------- Layout B：側邊欄 ---------------- */
+.app--layout-B { max-width: 1200px; }
+.layout-b {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  gap: var(--sp-6);
+  align-items: start;
+}
+.layout-b__side {
+  position: sticky;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: calc(100dvh - 120px);
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+}
+.layout-b__main { min-width: 0; }
+
+/* ---------------- Layout C：垂直捲動（全部天堆疊） ---------------- */
+.app--layout-C { max-width: 860px; }
+.layout-c { display: flex; flex-direction: column; gap: var(--sp-6); }
+.layout-c .day-panel {
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+  animation: none;
+}
+.add-day-block { align-self: center; margin-top: var(--sp-2); }
+
+/* ---------------- RWD ---------------- */
+@media (max-width: 860px) {
+  /* Layout B 於窄螢幕收合為單欄，側欄改為水平捲動 */
+  .layout-b { grid-template-columns: 1fr; gap: var(--sp-4); }
+  .layout-b__side {
+    position: static;
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    padding-bottom: var(--sp-2);
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout-b__side .side-day { flex: 0 0 auto; min-width: 140px; }
+  .side-day--add { margin-top: 0; }
+}
+
+@media (max-width: 640px) {
+  .app { padding: 0 var(--sp-3) var(--sp-7); }
+  .app-header { margin: 0 calc(-1 * var(--sp-3)); padding-left: var(--sp-3); padding-right: var(--sp-3); }
+  .day-head__meta { width: 100%; }
+  /* 底部快捷列留白，避免遮住內容 */
+  body { padding-bottom: 64px; }
+  .layout-c .day-panel { padding: var(--sp-4); }
+}
+
+@media (max-width: 480px) {
+  .trip-subtitle { flex-wrap: wrap; gap: var(--sp-2); }
+  .app-header__actions .theme-dots { display: none; } /* 小螢幕收進設定抽屜 */
+}

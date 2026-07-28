@@ -1,0 +1,194 @@
+/* ============================================================
+   tokens.css — 設計系統：字體、間距、圓角、陰影、動態、主題色
+   方向：旅行手帳 × 工具（Editorial × Tool）
+   4 主題沿用並精修：cream(預設) / light / dark / cyberpunk
+   ============================================================ */
+
+:root {
+  /* ---------- 字體家族 ---------- */
+  --font-display: "Newsreader", "Noto Serif TC", Georgia, serif;      /* 行程/天標題：暖 serif */
+  --font-sans: "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;  /* 內文 / UI */
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace; /* 時間 / 數字 */
+
+  /* ---------- 字級（clamp 流體） ---------- */
+  --fs-hero: clamp(1.9rem, 1.3rem + 2.4vw, 3rem);
+  --fs-h2:   clamp(1.35rem, 1.05rem + 1vw, 1.85rem);
+  --fs-lg:   1.125rem;
+  --fs-base: 1rem;
+  --fs-sm:   0.875rem;
+  --fs-xs:   0.75rem;
+  --lh-tight: 1.15;
+  --lh-body: 1.55;
+
+  /* ---------- 8pt 間距系統 ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* ---------- 圓角 ---------- */
+  --r-xs: 4px;
+  --r-sm: 6px;   /* chips / 小控件 */
+  --r-md: 10px;  /* 卡片 */
+  --r-lg: 16px;  /* 面板 */
+  --r-full: 999px;
+
+  /* ---------- 動態（compositor-friendly） ---------- */
+  --dur-fast: 140ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* ---------- Timeline 幾何 ---------- */
+  --tl-time-w: 62px;   /* 時間欄寬 */
+  --tl-rail-w: 26px;   /* 節點/軌道欄寬 */
+  --tl-dot: 13px;
+
+  /* ---------- 預設主題 = cream（暖手帳） ---------- */
+  --bg: #fdf6ee;
+  --bg-grain: 0.03;
+  --surface: #fffbf5;
+  --surface-2: #f7ecdd;
+  --header-bg: #f0e4d0;
+  --text: #2d1f10;
+  --text-muted: #9a7a60;
+  --accent: #c07040;
+  --accent-strong: #a4552a;
+  --accent-soft: #f3e0cf;
+  --border: #e8d5bc;
+  --border-strong: #d8bc9a;
+  --time-color: #b06a2a;
+  --color-success: #4f9d69;
+  --color-warn: #d08a1e;
+  --color-danger: #c1553a;
+  --ring: 0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent);
+
+  /* 分類色（7 類） */
+  --cat-sightseeing: #3f7fb8;
+  --cat-food:        #c85b4a;
+  --cat-shopping:    #9b6bb0;
+  --cat-transit:     #8a7a66;
+  --cat-hotel:       #4f9d69;
+  --cat-activity:    #d0803a;
+  --cat-other:       #8a8175;
+
+  /* 陰影：5 級 elevation */
+  --sh-1: 0 1px 2px rgba(60, 38, 12, 0.06);
+  --sh-2: 0 2px 6px rgba(60, 38, 12, 0.08);
+  --sh-3: 0 6px 16px rgba(60, 38, 12, 0.10);
+  --sh-4: 0 12px 30px rgba(60, 38, 12, 0.14);
+  --sh-focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+/* ---------------- light（清爽藍） ---------------- */
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --header-bg: #3b82f6;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --time-color: #2563eb;
+  --color-success: #16a34a;
+  --color-warn: #d97706;
+  --color-danger: #dc2626;
+  --bg-grain: 0;
+  --cat-sightseeing: #2563eb;
+  --cat-food:        #ef4444;
+  --cat-shopping:    #a855f7;
+  --cat-transit:     #64748b;
+  --cat-hotel:       #16a34a;
+  --cat-activity:    #ea580c;
+  --cat-other:       #6b7280;
+  --sh-1: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --sh-2: 0 2px 6px rgba(15, 23, 42, 0.08);
+  --sh-3: 0 6px 16px rgba(15, 23, 42, 0.10);
+  --sh-4: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+
+/* ---------------- dark（夜幕） ---------------- */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #273449;
+  --header-bg: #172033;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent: #7dd3fc;
+  --accent-strong: #38bdf8;
+  --accent-soft: #1e3a52;
+  --border: #334155;
+  --border-strong: #475569;
+  --time-color: #fbbf24;
+  --color-success: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --bg-grain: 0;
+  --cat-sightseeing: #60a5fa;
+  --cat-food:        #f87171;
+  --cat-shopping:    #c084fc;
+  --cat-transit:     #94a3b8;
+  --cat-hotel:       #34d399;
+  --cat-activity:    #fb923c;
+  --cat-other:       #64748b;
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-2: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --sh-3: 0 8px 20px rgba(0, 0, 0, 0.5);
+  --sh-4: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------------- cyberpunk（霓虹） ---------------- */
+[data-theme="cyberpunk"] {
+  --bg: #060610;
+  --surface: #0d0d1f;
+  --surface-2: #14142b;
+  --header-bg: #0a0a1a;
+  --text: #c8f0ff;
+  --text-muted: #6a7a9a;
+  --accent: #00d4ff;
+  --accent-strong: #34e0ff;
+  --accent-soft: #0a2836;
+  --border: #1e2647;
+  --border-strong: #2c3766;
+  --time-color: #ffe040;
+  --color-success: #00ff88;
+  --color-warn: #ffe040;
+  --color-danger: #ff5a7a;
+  --bg-grain: 0;
+  --cat-sightseeing: #00d4ff;
+  --cat-food:        #ff5a7a;
+  --cat-shopping:    #c77dff;
+  --cat-transit:     #6a7a9a;
+  --cat-hotel:       #00ff88;
+  --cat-activity:    #ffb347;
+  --cat-other:       #7a8bbf;
+  --sh-1: 0 1px 2px rgba(0, 212, 255, 0.10);
+  --sh-2: 0 2px 10px rgba(0, 212, 255, 0.14);
+  --sh-3: 0 8px 24px rgba(0, 212, 255, 0.18);
+  --sh-4: 0 16px 44px rgba(0, 212, 255, 0.22);
+}
+
+/* ---------------- 字級縮放（設定：小/正常/大） ---------------- */
+[data-font="small"]  { font-size: 15px; }
+[data-font="normal"] { font-size: 16px; }
+[data-font="large"]  { font-size: 18px; }
+
+/* ---------------- 減少動態偏好 ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

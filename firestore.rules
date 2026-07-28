@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// ============================================================
+// Firestore 安全規則（雲端共用使用）
+//
+// 安全模型（見 docs/adr/0004）：
+// - 前端密碼／暗號為「盡力而為」的裝置端 SHA-256 檢查，非加密邊界。
+// - 這些規則只做「防濫用」（形狀 + 大小上限），不是真正的授權邊界。
+//   刪除／覆寫的把關在前端（需輸入當初設定的刪除密碼）；規則不驗密碼，
+//   因為匿名寫入本就無法安全地驗證，且分享連結即代表可讀權限。
+// - committed 的 Firebase web config 不是機密。
+//
+// 文件形狀（見 docs/functional-spec.md §14.2）：
+//   { tripName, uploadedAt, data:<完整 state>, deletePasswordHash,
+//     visibility:"public"|"private", secretCodeHash:string|null }
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 分享的行程文件（collection：shared_trips）
+    match /shared_trips/{tripId} {
+      // 任何持有分享 ID／暗號的人可讀（分享連結即權限）
+      allow read: if true;
+
+      // 建立／覆寫：必須維持基本形狀（防濫用）
+      // 註：文件位元組上限由 Firestore 原生的每份 1 MiB 硬上限強制執行；
+      //     規則語言沒有「位元組大小」函式（.size() 在 map 上回傳鍵數量而非位元組），
+      //     因此這裡只做形狀 + 欄位長度／鍵數量的防濫用檢查。
+      allow create, update: if isValidTrip();
+
+      // 刪除：前端以刪除密碼把關（見上方安全模型說明）
+      allow delete: if true;
+    }
+
+    function isValidTrip() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['tripName', 'data', 'visibility', 'deletePasswordHash'])
+             && d.tripName is string
+             && d.tripName.size() < 200          // 行程名稱長度上限（防濫用）
+             && d.data is map
+             && d.data.keys().size() < 500        // 頂層欄位數量上限（防濫用）
+             && d.visibility in ['public', 'private']
+             && d.deletePasswordHash is string;
+    }
+  }
+}

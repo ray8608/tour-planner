@@ -62,8 +62,33 @@
 
 ## 開發說明
 
-所有程式碼集中於 `tour-planner.html` 單一檔案。
+專案採**多檔 ES modules、零建置**架構：`index.html` 直接載入 `js/app.js`，其餘模組以原生 `import` 串接（`js/render/`、`js/services/`、`js/state.js` 等），CSS 拆為 `css/tokens.css`、`css/layout.css`、`css/components.css`。沒有打包步驟，改完存檔即生效。
 
-新增功能時請同步更新：
-1. `README.md`（本檔案）
-2. `renderHelpOverlay()` 函數中的說明內容（約在 `function renderHelpOverlay()` 處）
+### 本機啟動
+
+ES modules 需經 HTTP 提供，無法用 `file://` 直接開。啟動本機開發伺服器：
+
+```bash
+npm run serve      # → http://localhost:8080/
+```
+
+此指令走專案內的 `serve.py`，它對每個回應送出 `Cache-Control: no-store` 等停用快取的標頭。**用意**：零建置架構的檔案沒有內容 hash，瀏覽器很容易把舊版模組／CSS 快取在記憶體，造成「改了卻沒更新、要 `Ctrl+Shift+R` 才生效」。停用快取後，改完程式**一般重整（F5）即為最新**。
+
+> 若手邊沒有需求，用 `python3 -m http.server 8080` 也能跑，只是會遇到上述快取問題。
+
+### 正式環境（GitHub Pages）的快取
+
+GitHub Pages 由 CDN 提供，與本機不同：它自帶一層邊緣快取，push 新 commit 後通常會在短時間內更新。實務上一般使用者重訪很快就會拿到新版，**目前不需要**為此在每個 `import` 加版本查詢字串（維護成本高）。
+
+這只是目前判斷，不是硬規定——若日後出現「已部署但使用者長時間看到舊版」的實際狀況，再視情況導入版本號機制（例如集中一個 build 版本常數、對入口資源加 `?v=` 查詢字串）即可。以當下實測行為為準。
+
+### 測試
+
+```bash
+npm test           # vitest run，涵蓋純邏輯（timeline / services / export / utils）
+```
+
+### 新增功能時請同步更新
+
+1. `README.md`（本檔案）的功能總覽
+2. 對應的說明／說明面板文案（若有）
