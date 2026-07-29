@@ -74,6 +74,8 @@ body::before {
   background: transparent;
   padding: 0;
   margin: 0;
+  /* 過長名稱優雅省略（input 為單行）；聚焦編輯時仍可捲動看全文 */
+  text-overflow: ellipsis;
 }
 .trip-title::placeholder { color: var(--text-muted); opacity: 0.55; }
 .trip-title:focus-visible { outline: none; box-shadow: 0 2px 0 0 var(--accent); }
@@ -197,6 +199,10 @@ body::before {
   .app { padding: 0 var(--sp-3) var(--sp-7); }
   .app-header { margin: 0 calc(-1 * var(--sp-3)); padding-left: var(--sp-3); padding-right: var(--sp-3); }
   .day-head__meta { width: 100%; }
+  /* 頁首標題與操作改為上下堆疊，讓標題獨佔整行、字級縮小避免溢出裁切 */
+  .app-header__top { flex-direction: column; gap: var(--sp-2); }
+  .app-header__actions { align-self: flex-end; }
+  .trip-title { font-size: clamp(1.3rem, 0.95rem + 2.2vw, 1.7rem); line-height: 1.2; }
   /* 底部快捷列留白，避免遮住內容 */
   body { padding-bottom: 64px; }
   .layout-c .day-panel { padding: var(--sp-4); }
@@ -205,4 +211,5 @@ body::before {
 @media (max-width: 480px) {
   .trip-subtitle { flex-wrap: wrap; gap: var(--sp-2); }
   .app-header__actions .theme-dots { display: none; } /* 小螢幕收進設定抽屜 */
+  .trip-title { font-size: 1.25rem; }
 }
