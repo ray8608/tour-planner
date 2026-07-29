@@ -168,6 +168,9 @@ function renderHotelItem({ slot, tag, dayId, field, value, placeholder }) {
 
 function renderRouteItem(state, dayId, rk, slot) {
   const route = state.routes[rk] || { transport: state.settings.defaultTransport, recordedTime: 0 };
+  const rt = route.recordedTime || 0;
+  const rh = Math.floor(rt / 60);
+  const rm = rt % 60;
   const toggle = TRANSPORT_MODES.map(
     (m) => `<button data-action="route-transport" data-rk="${escapeAttr(rk)}" data-transport="${m.id}"
                     class="${route.transport === m.id ? "is-active" : ""}"
@@ -181,10 +184,12 @@ function renderRouteItem(state, dayId, rk, slot) {
         <div class="route-card">
           <span class="transport-toggle" role="group" aria-label="交通方式">${toggle}</span>
           <span class="route-mins">
-            <input class="num-input" type="number" min="0" step="5"
-                   data-action="route-time" data-rk="${escapeAttr(rk)}"
-                   value="${route.recordedTime || ""}" placeholder="0" aria-label="交通分鐘數" />
-            <span>分</span>
+            <input class="num-input" type="number" min="0" max="23"
+                   data-action="route-time-h" data-rk="${escapeAttr(rk)}"
+                   value="${rh || ""}" placeholder="0" aria-label="交通小時" /> <span>時</span>
+            <input class="num-input" type="number" min="0" max="59" step="5"
+                   data-action="route-time-m" data-rk="${escapeAttr(rk)}"
+                   value="${rm || ""}" placeholder="0" aria-label="交通分鐘" /> <span>分</span>
           </span>
           <button class="btn btn--icon btn--ghost route-auto" data-action="auto-route"
                   data-day="${escapeAttr(dayId)}" data-rk="${escapeAttr(rk)}"
@@ -213,7 +218,7 @@ function renderSpotItem(state, day, spot, slot) {
              data-spot-id="${escapeAttr(spot.id)}" data-day-id="${escapeAttr(day.id)}" draggable="true">
           <div class="spot-card__head">
             <span class="drag-handle" title="拖曳排序" aria-hidden="true">⠿</span>
-            <span class="spot-cat" title="分類">${cat ? cat.emoji : "📍"}</span>
+            <span class="spot-cat" title="分類">${cat ? cat.emoji : "🏷"}</span>
             <input class="spot-name" type="text"
                    data-action="spot-name" data-day="${escapeAttr(day.id)}" data-spot="${escapeAttr(spot.id)}"
                    value="${escapeAttr(spot.name)}" placeholder="景點名稱" aria-label="景點名稱" />
@@ -222,7 +227,7 @@ function renderSpotItem(state, day, spot, slot) {
                       data-action="geocode-spot"
                       data-day="${escapeAttr(day.id)}" data-spot="${escapeAttr(spot.id)}"
                       title="${spot.lat != null ? "已定位：" + escapeAttr(spot.resolvedAddress || "") : "以名稱定位座標"}"
-                      aria-label="定位座標">📍</button>
+                      aria-label="定位座標">${spot.lat != null ? "📍" : "🔍"}</button>
               <button class="btn btn--icon btn--ghost" data-action="move-spot-up"
                       data-day="${escapeAttr(day.id)}" data-spot="${escapeAttr(spot.id)}"
                       title="上移" aria-label="上移">↑</button>

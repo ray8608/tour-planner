@@ -46,7 +46,8 @@ const TEXT_ACTIONS = new Set([
 const CHANGE_ACTIONS = new Set([
   "trip-start-date",
   "day-start-time",
-  "route-time",
+  "route-time-h",
+  "route-time-m",
   "spot-dur-h",
   "spot-dur-m",
   "spot-category",
@@ -501,9 +502,14 @@ function onChange(e) {
         if (day) day.startTime = val;
         break;
       }
-      case "route-time": {
+      case "route-time-h": {
         const r = ensureRoute(d, rk);
-        r.recordedTime = num;
+        r.recordedTime = Math.min(23, num) * 60 + ((r.recordedTime || 0) % 60);
+        break;
+      }
+      case "route-time-m": {
+        const r = ensureRoute(d, rk);
+        r.recordedTime = Math.floor((r.recordedTime || 0) / 60) * 60 + Math.min(59, num);
         break;
       }
       case "spot-dur-h": {

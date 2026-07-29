@@ -204,6 +204,7 @@
   background: transparent;
   border: 0;
   padding: var(--sp-1) 0;
+  text-overflow: ellipsis; /* 過長名稱優雅省略；聚焦編輯時仍可捲動看全文 */
 }
 .spot-name::placeholder { color: var(--text-muted); }
 .spot-name:focus-visible { outline: none; box-shadow: 0 2px 0 0 var(--accent); }
@@ -825,6 +826,13 @@ html[data-trips="open"] .trip-menu { transform: translateX(0); }
   .mobile-bar__btn small { font-size: 0.62rem; color: var(--text-muted); }
   .mobile-bar__btn:disabled { opacity: 0.35; }
   .mobile-bar__btn:active { background: var(--surface-2); }
+
+  /* 景點卡頭部：手機上把 4 個操作按鈕移到第二行，讓名稱獨佔近整行、可讀 */
+  .drag-handle { display: none; } /* 觸控裝置改用 ↑↓ 排序，隱藏拖曳把手騰出空間 */
+  .spot-card__head { flex-wrap: wrap; }
+  .spot-name { flex: 1 1 auto; font-size: var(--fs-base); }
+  .spot-card__actions { flex: 1 1 100%; justify-content: flex-end; opacity: 1; margin-top: var(--sp-1); }
+  .spot-card__actions .btn--icon { width: 34px; height: 34px; } /* 觸控目標加大 */
 }
 
 /* ============================================================
