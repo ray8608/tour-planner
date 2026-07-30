@@ -79,3 +79,33 @@ _Avoid_：密碼、通關碼
 
 **超級使用者（Superuser）**：
 隱藏的 UI 便利模式，非真正權限邊界（見 ADR-0004）。
+
+### 交換與同步（Notion / Markdown / CSV）
+
+**交換格式（Interchange）**：
+Trip 與 Notion／其他工具互通的載體。雙軌分工：**Markdown** 給人看、且供本工具 web↔web 無損來回（可完整解析回 Trip）；**CSV** 對齊 Notion「行程」資料庫欄位，供與 Notion database 互通。從 Notion 匯入行程資料靠解析 CSV（Notion 頁面 md 不含行程列）。
+_Avoid_：匯出檔、輸出格式（太籠統）
+
+**Notion 匯出（Notion Export）**：
+Notion 匯出的是一個**多檔資料夾**：頂層頁面 md ＋ 每個資料庫一份 CSV ＋ 每列一個子頁面 md。行程資料在 CSV，不在頁面 md。
+
+**取代式匯入（Replace Import）**：
+匯入外部資料時，整趟 Trip 以其**新建或整個取代**，不做逐列比對合併、不維護跨系統穩定 ID（見 ADR-0007）。
+_Avoid_：同步、合併（本專案刻意不做雙向合併）
+
+**交通段列（Leg Row）**：
+在 Notion「行程」表與我們的 CSV 中，代表一段 Route 的那一列——以「移動方式」欄非空判定（備用：Details 為 `"A - B"`）。其餘列為景點列（Spot Row）。
+
+**住宿（Accommodation）**：
+一趟 Trip 的一間住宿記錄，含類型、地址、入住／退房日期、城市、花費、付款狀態、訂房連結、圖片。獨立於 Itinerary 的側記錄，不自動注入時間軸。
+_Avoid_：飯店（`startHotelName`/`endHotelName` 仍指每天的出發／返回飯店字串，兩者不同）
+
+**航班（Flight）**：
+一趟 Trip 的一筆航班記錄，含航空公司、航班號、艙等、出發／抵達機場與時刻、飛行時間、國內／國際。獨立側記錄。
+
+**攻略頁（Guide）**：
+附在 Trip 上的自由格式參考頁（如「大阪景點」「梅田攻略」），標題＋內文（Markdown）。對應 Notion「旅遊攻略」資料庫的子頁。
+_Avoid_：筆記（`notes` 指景點層級的備註，不同層級）
+
+**待辦（Todo）**：
+Trip 層級的檢查清單項目（文字＋完成與否），對應 Notion 頂層頁面的「待辦事項」。
