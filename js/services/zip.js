@@ -29,14 +29,15 @@ export function zipStore(files) {
     const nameB = enc.encode(f.path);
     const data = f.bytes;
     const crc = crc32(data);
+    // flag bit 11 (0x0800)：宣告檔名為 UTF-8，避免解壓程式以本地碼頁解讀中文檔名成亂碼
     local.push(
-      ...le32(0x04034b50), ...le16(20), ...le16(0), ...le16(0),
+      ...le32(0x04034b50), ...le16(20), ...le16(0x0800), ...le16(0),
       ...le16(0), ...le16(0), ...le32(crc),
       ...le32(data.length), ...le32(data.length),
       ...le16(nameB.length), ...le16(0), ...nameB, ...data
     );
     central.push(
-      ...le32(0x02014b50), ...le16(20), ...le16(20), ...le16(0), ...le16(0),
+      ...le32(0x02014b50), ...le16(20), ...le16(20), ...le16(0x0800), ...le16(0),
       ...le16(0), ...le16(0), ...le32(crc),
       ...le32(data.length), ...le32(data.length),
       ...le16(nameB.length), ...le16(0), ...le16(0), ...le16(0), ...le16(0),

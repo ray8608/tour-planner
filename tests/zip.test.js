@@ -24,6 +24,13 @@ describe("zip store round-trip", () => {
     expect(map["行程.csv"]).toBe("名稱,天\nA,Day 1\n");
     expect(map["旅遊攻略/京都.md"]).toBe("# 京都\n內文");
   });
+
+  it("設定 UTF-8 檔名旗標（flag bit 11），避免中文檔名亂碼", () => {
+    const zipped = zipStore([{ path: "行程.csv", bytes: enc("x") }]);
+    // local header general-purpose flag 在 offset 6（緊接 sig 4 + version 2）
+    const localFlag = zipped[6] | (zipped[7] << 8);
+    expect(localFlag & 0x0800).toBe(0x0800);
+  });
 });
 
 describe("zip deflate 解壓", () => {
