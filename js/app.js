@@ -164,9 +164,11 @@ async function handleImportNotionZip(input) {
     const files = await unzip(buf);
     const { state, report } = notionFilesToTrip(files);
     const c = report.counts;
+    const sideCount = c.accommodations + c.flights + c.guides + c.todos;
     const summary =
       `將匯入：${c.days} 天、${c.spots} 景點、${c.legs} 段交通、` +
       `${c.accommodations} 住宿、${c.flights} 航班、${c.guides} 攻略、${c.todos} 待辦。\n` +
+      (sideCount > 0 ? `\n※ 住宿／航班／攻略／待辦目前僅保留供再匯出，App 內尚無編輯介面。\n` : "") +
       (report.dropped.length ? `\n未完整匯入：\n- ${report.dropped.join("\n- ")}\n` : "") +
       `\n是否以此取代目前行程？此動作無法復原。`;
     if (!confirm(summary)) return;

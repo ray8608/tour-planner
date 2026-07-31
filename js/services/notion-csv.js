@@ -40,8 +40,8 @@ export function serializeCsv(rows) {
 /** "2 hrs 45 mins" → 165（分）；無法解析回 0 */
 export function parseDuration(str) {
   const s = String(str || "");
-  const h = /(\d+)\s*hrs?/.exec(s);
-  const m = /(\d+)\s*mins?/.exec(s);
+  const h = /(\d+)\s*(?:hrs?|hours?|h)\b/i.exec(s);
+  const m = /(\d+)\s*(?:mins?|minutes?|m)\b/i.exec(s);
   return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0);
 }
 

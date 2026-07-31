@@ -39,4 +39,24 @@ describe("zip deflate 解壓", () => {
     const out = await unzip(zip);
     expect(dec(out[0].bytes)).toBe(dec(raw));
   });
+
+  it("能解含 data descriptor 的串流式 zip（local header size=0，H1 回歸）", async () => {
+    const raw = enc("streamed content ".repeat(40));
+    const cs = new CompressionStream("deflate-raw");
+    const w = cs.writable.getWriter();
+    w.write(raw); w.close();
+    const comp = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+    const { buildDescriptorDeflateZip } = await import("./helpers/build-descriptor-zip.js");
+    const zip = buildDescriptorDeflateZip("行程/資料.txt", raw, comp);
+    const out = await unzip(zip);
+    expect(out).toHaveLength(1);
+    expect(out[0].path).toBe("行程/資料.txt");
+    expect(dec(out[0].bytes)).toBe(dec(raw));
+  });
+});
+
+describe("zip 畸形輸入", () => {
+  it("非 ZIP（無 EOCD）丟出明確錯誤而非靜默截斷", async () => {
+    await expect(unzip(enc("this is not a zip file at all"))).rejects.toThrow(/ZIP/);
+  });
 });

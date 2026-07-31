@@ -35,6 +35,9 @@ describe("parseDuration", () => {
     ["15 mins", 15],
     ["1 hr 10 mins", 70],
     ["3 hrs  15 mins", 195], // 雙空格 typo
+    ["1 hour 30 minutes", 90], // 全稱（人工填寫）
+    ["2 hours", 120],
+    ["45 minutes", 45],
     ["", 0],
     ["亂寫", 0],
   ])("%s → %i 分", (s, m) => expect(parseDuration(s)).toBe(m));

@@ -56,6 +56,9 @@ export function zipStore(files) {
 function readU16(b, o) { return b[o] | (b[o + 1] << 8); }
 function readU32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 8 * 3)) >>> 0; }
 
+/** 解壓後總量上限（防 zip-bomb OOM）；正常旅遊行程遠低於此。 */
+const MAX_TOTAL_BYTES = 256 * 1024 * 1024;
+
 async function inflateRaw(bytes) {
   const ds = new DecompressionStream("deflate-raw");
   const w = ds.writable.getWriter();
@@ -63,28 +66,61 @@ async function inflateRaw(bytes) {
   return new Uint8Array(await new Response(ds.readable).arrayBuffer());
 }
 
+/** 由檔尾往前找 End Of Central Directory（sig 0x06054b50）；找不到回 -1。 */
+function findEocd(bytes) {
+  const min = 22; // EOCD 固定長度
+  const start = bytes.length - min;
+  const limit = Math.max(0, bytes.length - min - 0xffff); // 允許最大 comment
+  for (let i = start; i >= limit; i--) {
+    if (readU32(bytes, i) === 0x06054b50) return i;
+  }
+  return -1;
+}
+
 /**
- * 解 zip。掃描 local file headers（method 0 store / 8 deflate）。
+ * 解 zip。以 central directory 取權威 method/compSize/offset，
+ * 正確處理 store（0）與 deflate（8），且不受 data descriptor
+ * （general-purpose flag bit 3、local header size=0）影響。
  * @returns {Promise<{path:string, bytes:Uint8Array}[]>}
  */
 export async function unzip(bytes) {
   const dec = new TextDecoder();
+  const eocd = findEocd(bytes);
+  if (eocd < 0) {
+    throw new Error("不是有效的 ZIP（找不到 central directory）");
+  }
+  const count = readU16(bytes, eocd + 10);
+  let cd = readU32(bytes, eocd + 16);
   const out = [];
-  let i = 0;
-  while (i + 4 <= bytes.length && readU32(bytes, i) === 0x04034b50) {
-    const method = readU16(bytes, i + 8);
-    const compSize = readU32(bytes, i + 18);
-    const nameLen = readU16(bytes, i + 26);
-    const extraLen = readU16(bytes, i + 28);
-    const nameStart = i + 30;
-    const dataStart = nameStart + nameLen + extraLen;
-    const path = dec.decode(bytes.subarray(nameStart, nameStart + nameLen));
-    const comp = bytes.subarray(dataStart, dataStart + compSize);
-    if (!path.endsWith("/")) {
-      const data = method === 8 ? await inflateRaw(comp) : comp.slice();
-      out.push({ path, bytes: data });
+  let total = 0;
+  for (let n = 0; n < count; n++) {
+    if (readU32(bytes, cd) !== 0x02014b50) {
+      throw new Error("ZIP central directory 損毀");
     }
-    i = dataStart + compSize;
+    const method = readU16(bytes, cd + 10);
+    const compSize = readU32(bytes, cd + 20);
+    const nameLen = readU16(bytes, cd + 28);
+    const extraLen = readU16(bytes, cd + 30);
+    const commentLen = readU16(bytes, cd + 32);
+    const localOff = readU32(bytes, cd + 42);
+    const path = dec.decode(bytes.subarray(cd + 46, cd + 46 + nameLen));
+    cd += 46 + nameLen + extraLen + commentLen;
+
+    if (path.endsWith("/")) continue; // 目錄項
+    // 由 local header 定位資料起點（local 的 name/extra 長度可能與 central 不同）
+    if (readU32(bytes, localOff) !== 0x04034b50) {
+      throw new Error(`ZIP local header 損毀：${path}`);
+    }
+    const lNameLen = readU16(bytes, localOff + 26);
+    const lExtraLen = readU16(bytes, localOff + 28);
+    const dataStart = localOff + 30 + lNameLen + lExtraLen;
+    const comp = bytes.subarray(dataStart, dataStart + compSize);
+    const data = method === 8 ? await inflateRaw(comp) : comp.slice();
+    total += data.length;
+    if (total > MAX_TOTAL_BYTES) {
+      throw new Error("ZIP 解壓內容過大，已中止（疑似 zip-bomb）");
+    }
+    out.push({ path, bytes: data });
   }
   return out;
 }

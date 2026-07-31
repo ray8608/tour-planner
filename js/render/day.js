@@ -261,7 +261,7 @@ function renderSpotItem(state, day, spot, slot) {
           ${
             spot.resolvedAddress
               ? `<a class="spot-address" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  spot.lat + "," + spot.lng
+                  spot.lat != null && spot.lng != null ? spot.lat + "," + spot.lng : spot.resolvedAddress
                 )}" target="_blank" rel="noopener">📌 ${escapeHtml(spot.resolvedAddress)}</a>`
               : ""
           }

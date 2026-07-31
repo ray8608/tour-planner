@@ -394,6 +394,7 @@ function renderHelpOverlay() {
           <p class="help-item">• <b>🔗 Notion</b>：匯出 Notion 可 import 的 <code>.zip</code>（頁面 Markdown＋行程／住宿／交通／攻略 CSV）。</p>
           <p class="help-item">• <b>⬆ 匯入 Notion ZIP</b>：讀取 Notion「Export → Markdown &amp; CSV」的 <code>.zip</code>，解析行程、住宿、航班、攻略與待辦（<b>取代式</b>，匯入前顯示數量摘要）。</p>
           <p class="help-note">※ Notion 匯出不含經緯度，匯入後請用 <b>🔍 查座標</b> 重新定位；地圖圖片不匯入、外部連結彙整到行程備註。</p>
+          <p class="help-note">※ 匯入的住宿／航班／攻略／待辦目前僅保留供再匯出，App 內尚無編輯介面。</p>
         </section>
 ${cloudSection}
         <section class="help-section">
