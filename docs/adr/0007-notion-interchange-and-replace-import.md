@@ -16,10 +16,14 @@
 - **web 為主檔（source of truth），取代式匯入**（Replace Import）。匯入時整趟 Trip 新建或整個取代，**不做逐列比對合併、不維護跨系統穩定 ID**。理由見 [[0003-state-undo-redo]]：狀態單向、匯入即 `importState`（清空 history）。
 - 明確**不做**雙向合併／增量同步／衝突解。
 
-### 雙軌格式分工（見 CONTEXT.md「交換格式」）
+### 兩向獨立、不可逆（見 CONTEXT.md「交換格式」）
 
-- **Markdown**：給人看，且供本工具 **web↔web 無損來回**（可完整解析回 Trip，含座標等 Notion 沒有的欄位）。
-- **CSV**：對齊 Notion「行程」資料庫欄位，供與 Notion database 互通。**從 Notion 匯入行程列靠解析 CSV**。
+功能拆成兩個**互相獨立**的方向，各自對齊 Notion，**不要求可逆**（不考慮 web→Notion→web 來回）：
+
+- **匯出**：產生 Notion 可 import 的 Markdown（頁面：頂層＋攻略）＋ CSV（資料庫：行程／住宿／交通／攻略）。
+- **匯入**：解析 Notion export 的 Markdown ＋ CSV；行程資料靠解析 CSV（Notion 頁面 md 不含行程列）。
+
+**不做 MD 的 web↔web 無損來回**——判定為 YAGNI：JSON 匯出已提供無損備份，且任何經過 Notion 的來回必然遺失座標。細節見 spec `docs/superpowers/specs/2026-07-31-notion-md-csv-bridge-design.md`。
 
 ### 對映規則
 
@@ -40,6 +44,6 @@
 
 ## 取捨
 
-拒絕「雙向合併／穩定 ID 同步」（複雜度高、與單向狀態模型衝突、非需求）；拒絕「只用 Markdown 單軌」（無法對齊 Notion database，也無法無損保存座標）；拒絕「靠檔名前綴辨識 CSV」（Notion 檔名帶 hash 且中文，改名或換語言即失效）。
+拒絕「雙向合併／穩定 ID 同步」（複雜度高、與單向狀態模型衝突、非需求）；拒絕「MD web↔web 無損」（YAGNI，JSON 已無損）；拒絕「靠檔名前綴辨識 CSV」（Notion 檔名帶 hash 且中文，改名或換語言即失效）。
 
 [[0003-state-undo-redo]] [[0008-notion-zip-packaging-and-data-model]]

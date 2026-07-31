@@ -83,8 +83,8 @@ _Avoid_：密碼、通關碼
 ### 交換與同步（Notion / Markdown / CSV）
 
 **交換格式（Interchange）**：
-Trip 與 Notion／其他工具互通的載體。雙軌分工：**Markdown** 給人看、且供本工具 web↔web 無損來回（可完整解析回 Trip）；**CSV** 對齊 Notion「行程」資料庫欄位，供與 Notion database 互通。從 Notion 匯入行程資料靠解析 CSV（Notion 頁面 md 不含行程列）。
-_Avoid_：匯出檔、輸出格式（太籠統）
+Trip 與 Notion 互通的載體，分兩個**互相獨立、不可逆**的方向：**匯出**產生 Notion 可 import 的 Markdown（頁面）＋ CSV（資料庫）；**匯入**解析 Notion export 的 Markdown ＋ CSV。行程資料在 CSV（Notion 頁面 md 不含行程列）。不做 MD 的 web↔web 無損來回（JSON 已無損；見 ADR-0007）。
+_Avoid_：匯出檔、輸出格式（太籠統）；同步（本專案刻意不做雙向來回）
 
 **Notion 匯出（Notion Export）**：
 Notion 匯出的是一個**多檔資料夾**：頂層頁面 md ＋ 每個資料庫一份 CSV ＋ 每列一個子頁面 md。行程資料在 CSV，不在頁面 md。

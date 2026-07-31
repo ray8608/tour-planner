@@ -14,8 +14,8 @@
 ### 打包：單一 ZIP，鏡像 Notion 資料夾結構
 
 - 匯出／匯入以**單個 ZIP** 為載體，內部鏡像 Notion 的多檔資料夾（頂層 md ＋ 每庫一份 CSV ＋ 每列子頁 md）。
-- **Store-only（不壓縮）、零依賴**：自行以純 JS 組 ZIP（store 模式僅需 CRC32＋local header＋central directory），不引入 JSZip 等 runtime 依賴，維持零建置邊界。
-- 匯入接受該 ZIP；容忍 Notion 原始匯出 ZIP（檔名帶 hash、資料夾巢狀、URL-encoded 連結）。
+- **匯出 store-only（不壓縮）、零依賴**：自行以純 JS 組 ZIP（store 模式僅需 CRC32＋local header＋central directory），不引入 JSZip 等 runtime 依賴，維持零建置邊界。
+- **匯入解 Notion 原始 ZIP（deflate 壓縮）用原生 `DecompressionStream('deflate-raw')` inflate**——瀏覽器原生 API、零依賴，與既有 Web Crypto／ES Modules 基線一致。容忍 Notion 匯出 ZIP 的檔名帶 hash、資料夾巢狀、URL-encoded 連結。
 
 ### 資料模型擴充（新增 Trip 層級欄位）
 
@@ -24,8 +24,8 @@
 - `spot.openingHours`（string）、`spot.imageUrl`（string）——擴充現有 spot。
 - `trip.todos[]`：`{ id, text, done }` —— 對應 Notion 頂層「待辦事項」。
 - `trip.accommodations[]`：`{ id, name, type, address, checkIn, checkOut, city, cost, paymentStatus, bookingUrl, imageUrl }`。
-- `trip.flights[]`：`{ id, airline, flightNo, cabin, fromAirport, departTime, toAirport, arriveTime, duration, domestic }`。
-- `trip.guides[]`：`{ id, title, body }`（body 為 Markdown）——對應 Notion「旅遊攻略」子頁。
+- `trip.flights[]`：`{ id, direction, airline, flightNo, cabin, fromAirport, departTime, toAirport, arriveTime, duration, international }`（對齊 Notion「交通」欄位；`direction`＝去程/回程、`international` 由 `類型` 推得）。
+- `trip.guides[]`：`{ id, title, city, imageUrl, body }`（body 為 Markdown）——對應 Notion「旅遊攻略」子頁。
 - `trip.notes`（string）：匯入時放不下內容的落腳處（見 ADR-0007）。
 
 ### 遷移

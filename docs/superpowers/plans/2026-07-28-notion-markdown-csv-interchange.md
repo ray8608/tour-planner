@@ -10,7 +10,7 @@
 ## 已定案決策（Q1–Q11）
 
 1. web 為主檔，取代式匯入（不合併、不維護跨系統 ID）
-2. 雙軌：MD（可讀＋web↔web 無損）＋ CSV（Notion database）
+2. 兩向獨立、不可逆：匯出產生 Notion 可讀的 MD（頁面）＋CSV（資料庫）；匯入吃 Notion export（見 2026-07-31 spec，取代原「MD web↔web 無損」）
 3. 交通獨立成列，以「移動方式」欄非空判定
 4. 全採用 Notion 專有欄位：`openingHours`＋`imageUrl`（spot）、`todos[]`、`accommodations[]`、`flights[]`、`guides[]`（trip）
 5. 單一 ZIP，鏡像 Notion 資料夾，store-only 零依賴
