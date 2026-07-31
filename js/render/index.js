@@ -325,11 +325,17 @@ function renderSettingsPanel(state, ctx) {
             <button class="btn btn--ghost" data-action="export-ics" title="匯出行事曆">📅 ICS</button>
             <button class="btn btn--ghost" data-action="export-kml" title="匯出 Google My Maps">🗺 KML</button>
             <button class="btn btn--ghost" data-action="export-csv" title="匯出試算表">📊 CSV</button>
+            <button class="btn btn--ghost" data-action="export-notion" title="匯出 Notion 可匯入的 ZIP（Markdown + CSV）">🔗 Notion</button>
           </div>
           <label class="btn btn--ghost import-btn">
             ⬆ 匯入 JSON 備份
             <input type="file" accept=".json,application/json" data-action="import-file"
                    class="sr-only" aria-label="選擇 JSON 備份檔" />
+          </label>
+          <label class="btn btn--ghost import-btn">
+            ⬆ 匯入 Notion ZIP
+            <input type="file" accept=".zip,application/zip" data-action="import-notion-file"
+                   class="sr-only" aria-label="選擇 Notion 匯出 ZIP" />
           </label>
         </div>
       </div>

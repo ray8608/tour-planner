@@ -26,6 +26,9 @@ import * as weather from "./services/weather.js";
 import { secondsToMinutes } from "./services/route.js";
 import { geocodePlace, routeSeconds, departureForDay } from "./services/nav.js";
 import { exportJson, buildIcs, buildKml, buildCsv, validateImport, safeFileStem } from "./services/export.js";
+import { zipStore, unzip } from "./services/zip.js";
+import { tripToNotionFiles } from "./services/notion-export.js";
+import { notionFilesToTrip } from "./services/notion-import.js";
 
 const WEATHER_TTL_MS = 3 * 60 * 60 * 1000;
 const root = document.getElementById("app");
@@ -149,6 +152,29 @@ function handleImportFile(input) {
   };
   reader.onerror = () => alert("讀取檔案失敗");
   reader.readAsText(file);
+}
+
+/** 讀取 Notion 匯出 ZIP → 解壓 → 建行程 → 確認 → 取代目前行程 */
+async function handleImportNotionZip(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  input.value = ""; // 允許重選同一檔
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const files = await unzip(buf);
+    const { state, report } = notionFilesToTrip(files);
+    const c = report.counts;
+    const summary =
+      `將匯入：${c.days} 天、${c.spots} 景點、${c.legs} 段交通、` +
+      `${c.accommodations} 住宿、${c.flights} 航班、${c.guides} 攻略、${c.todos} 待辦。\n` +
+      (report.dropped.length ? `\n未完整匯入：\n- ${report.dropped.join("\n- ")}\n` : "") +
+      `\n是否以此取代目前行程？此動作無法復原。`;
+    if (!confirm(summary)) return;
+    importState(state);
+    setSettingsOpen(false);
+  } catch (err) {
+    alert("匯入失敗：無法解析 Notion ZIP（" + (err && err.message ? err.message : err) + "）");
+  }
 }
 
 // ---------------- 輔助：定位 day / spot ----------------
@@ -358,6 +384,12 @@ function onClick(e) {
       downloadFile(`${safeFileStem(st.tripName)}.csv`, "text/csv;charset=utf-8", buildCsv(st));
       return;
     }
+    case "export-notion": {
+      const st = getState();
+      const zip = zipStore(tripToNotionFiles(st));
+      downloadFile(`${safeFileStem(st.tripName)}-notion.zip`, "application/zip", zip);
+      return;
+    }
 
     case "geocode-spot":
       geocodeSpot(dayId, spotId, el);
@@ -463,6 +495,11 @@ function onChange(e) {
   // 匯入 JSON 備份（file input）
   if (action === "import-file") {
     handleImportFile(el);
+    return;
+  }
+  // 匯入 Notion 匯出 ZIP（file input）
+  if (action === "import-notion-file") {
+    handleImportNotionZip(el);
     return;
   }
   // 天氣城市：失焦時 geocode
