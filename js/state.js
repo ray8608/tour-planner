@@ -15,6 +15,9 @@ import {
 
 const HISTORY_LIMIT = 50;
 
+// 瀏覽器提供 localStorage；node（測試）環境下不存在，故以 null 退化為無持久化。
+const ls = typeof localStorage !== "undefined" ? localStorage : null;
+
 /** 建一個新的一天 */
 export function makeDay(index) {
   return {
@@ -38,6 +41,8 @@ export function makeSpot(name = "") {
     lat: null,
     lng: null,
     resolvedAddress: "",
+    openingHours: "",
+    imageUrl: "",
   };
 }
 
@@ -45,7 +50,7 @@ export function makeSpot(name = "") {
 export function defaultState() {
   const d = makeDay(1);
   return {
-    version: 3,
+    version: 4,
     tripName: "新旅程",
     tripStartDate: "",
     activeDayId: d.id,
@@ -60,6 +65,11 @@ export function defaultState() {
       mapsMode: "off", // "off" | "on"（啟用 Google Maps 進階導航）
       mapsKey: "",
     },
+    notes: "",
+    todos: [],
+    accommodations: [],
+    flights: [],
+    guides: [],
     days: [d],
     routes: {},
   };
@@ -71,6 +81,11 @@ export function migrateState(raw) {
   const out = defaultState();
   if (typeof s.tripName === "string") out.tripName = s.tripName;
   if (typeof s.tripStartDate === "string") out.tripStartDate = s.tripStartDate;
+  if (typeof s.notes === "string") out.notes = s.notes;
+  if (Array.isArray(s.todos)) out.todos = s.todos;
+  if (Array.isArray(s.accommodations)) out.accommodations = s.accommodations;
+  if (Array.isArray(s.flights)) out.flights = s.flights;
+  if (Array.isArray(s.guides)) out.guides = s.guides;
   if (s.settings && typeof s.settings === "object") {
     out.settings = { ...out.settings, ...s.settings };
   }
@@ -123,8 +138,8 @@ function safeParse(str) {
 
 /** 載入多行程容器（含舊單行程遷移），設定 allTrips/activeIdx，回傳作用中行程狀態 */
 function load() {
-  const container = safeParse(localStorage.getItem(TRIPS_KEY));
-  const legacy = safeParse(localStorage.getItem(LEGACY_KEY));
+  const container = safeParse(ls ? ls.getItem(TRIPS_KEY) : null);
+  const legacy = safeParse(ls ? ls.getItem(LEGACY_KEY) : null);
   const norm = normalizeTripsContainer(container, legacy);
   if (!norm.trips.length) {
     norm.trips = [defaultState()];
@@ -139,7 +154,7 @@ function load() {
 function persist() {
   try {
     allTrips[activeIdx] = state;
-    localStorage.setItem(TRIPS_KEY, JSON.stringify({ trips: allTrips, activeIdx }));
+    if (ls) ls.setItem(TRIPS_KEY, JSON.stringify({ trips: allTrips, activeIdx }));
   } catch (_) {
     /* 配額或隱私模式：忽略 */
   }
