@@ -391,6 +391,9 @@ function renderHelpOverlay() {
           <h3 class="help-section__title">💾 匯出 / 匯入（設定面板「資料」區）</h3>
           <p class="help-item">• <b>⬇ JSON</b>：下載完整備份；<b>⬆ 匯入 JSON 備份</b>：從備份還原（會覆蓋目前行程）。</p>
           <p class="help-item">• <b>📅 ICS</b>：匯出行事曆（需先設出發日期）；<b>🗺 KML</b>：匯入 Google My Maps；<b>📊 CSV</b>：試算表。</p>
+          <p class="help-item">• <b>🔗 Notion</b>：匯出 Notion 可 import 的 <code>.zip</code>（頁面 Markdown＋行程／住宿／交通／攻略 CSV）。</p>
+          <p class="help-item">• <b>⬆ 匯入 Notion ZIP</b>：讀取 Notion「Export → Markdown &amp; CSV」的 <code>.zip</code>，解析行程、住宿、航班、攻略與待辦（<b>取代式</b>，匯入前顯示數量摘要）。</p>
+          <p class="help-note">※ Notion 匯出不含經緯度，匯入後請用 <b>🔍 查座標</b> 重新定位；地圖圖片不匯入、外部連結彙整到行程備註。</p>
         </section>
 ${cloudSection}
         <section class="help-section">
@@ -408,7 +411,7 @@ ${cloudSection}
         </section>
       </div>
       <div class="help-panel__foot">
-        <b>最後更新</b>：手機景點卡改版（名稱獨佔整行更易讀、操作按鈕移至次行）；分類未設改用 🏷、定位按鈕未定位顯示 🔍 以免與座標圖示混淆；車程時間可分別填「時」與「分」；修正手機頁首行程名稱溢出；座標查詢與自動填通勤接上 Google Maps（含大眾運輸真實班次，失敗自動回退 OSM）（2026-07-28）
+        <b>最後更新</b>：新增 Notion 橋接——<b>🔗 Notion</b> 匯出 Notion 可 import 的 ZIP（Markdown＋CSV），<b>⬆ 匯入 Notion ZIP</b> 可讀取 Notion 匯出的 <code>.zip</code>（取代式，含住宿／航班／攻略／待辦與匯入摘要）（2026-07-31）
       </div>
     </aside>
   `;

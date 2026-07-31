@@ -19,6 +19,12 @@
 ### 📁 匯入 / 匯出
 - **匯出 JSON**：將目前行程儲存為 `.json` 檔案備份
 - **匯入 JSON**：從備份的 `.json` 檔案還原行程
+- **匯出 ICS／KML／CSV**：分別匯出行事曆、Google My Maps、試算表
+- **🔗 Notion（匯出）**：產生 Notion 可直接 import 的 `.zip`——內含頁面 Markdown 與各資料庫 CSV（行程、住宿、交通、旅遊攻略），行程時刻以停留／交通時間累加成 Notion 的日期時段
+- **⬆ 匯入 Notion ZIP**：直接讀取 Notion「Export → Markdown & CSV」下載的 `.zip`，解析出行程天數、景點、交通段、住宿、航班、攻略與待辦
+  - 匯入為**取代式**：確認後會覆蓋目前行程（無法復原），匯入前會顯示各類項目數量與未完整匯入的內容摘要
+  - Notion 匯出**不含經緯度**，故匯入後景點需重新用 **🔍 查座標** 定位；地圖圖片與外部連結不會匯入（外部連結彙整到行程備註）
+  - 住宿、航班、旅遊攻略以獨立側記錄保存
 
 ### 🔧 批次工具
 設定面板提供兩個批次操作。**未填 Google Maps API Key 時**透過免費 OpenStreetMap 服務（Nominatim + OSRM）；於設定填入 API Key 並啟用後，改用 **Google Maps**（座標更準、大眾運輸查真實班次），Google 查不到時自動回退 OSM：
