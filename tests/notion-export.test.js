@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tripToNotionFiles, notionId } from "../js/services/notion-export.js";
+import { tripToNotionFiles, notionId, buildRecords } from "../js/services/notion-export.js";
 import { parseCsv, detectCsvType } from "../js/services/notion-csv.js";
 
 const dec = (u) => new TextDecoder().decode(u);
@@ -58,5 +58,42 @@ describe("notionId", () => {
   it("同一 seed 確定性、不同 seed 不同", () => {
     expect(notionId("db:行程")).toBe(notionId("db:行程"));
     expect(notionId("db:行程")).not.toBe(notionId("db:住宿"));
+  });
+});
+
+describe("buildRecords", () => {
+  const recs = buildRecords(makeState());
+
+  it("行程：交通段獨立成列、含移動方式，且無座標欄", () => {
+    const leg = recs["行程"].find((r) => r.values.Details === "伏見稻荷 - 京都車站");
+    expect(leg).toBeTruthy();
+    expect(leg.values["移動方式"]).toBe("大眾運輸");
+    const spot = recs["行程"].find((r) => r.values.Details === "伏見稻荷");
+    expect(spot.values["類別"]).toBe("景點參觀");
+    expect(spot.values["時間"]).toBe("1 hr 25 mins");
+    expect(spot.values).not.toHaveProperty("緯度");
+    expect(spot.values).not.toHaveProperty("經度");
+    expect(spot.dayId).toBe("d1");
+  });
+
+  it("住宿：日期範圍與付款欄對映", () => {
+    const a = recs["住宿"][0];
+    expect(a.values.Name).toBe("季針小路");
+    expect(a.values["日期"]).toBe("July 15, 2026 → July 18, 2026");
+    expect(a.values["付款類型"]).toBe("Paid");
+    expect(a.values["類型"]).toBe("Airbnb");
+  });
+
+  it("交通：類型依 international 對映、標題欄為 Transport", () => {
+    const f = recs["交通"][0];
+    expect(f.values.Transport).toBe("去程");
+    expect(f.values["No."]).toBe("CX564");
+    expect(f.values["類型"]).toBe("International");
+  });
+
+  it("旅遊攻略：body 帶內文", () => {
+    const g = recs["旅遊攻略"][0];
+    expect(g.values.Name).toBe("京都景點");
+    expect(g.body).toContain("清水寺");
   });
 });

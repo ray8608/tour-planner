@@ -29,6 +29,83 @@ export function notionId(seed) {
     .join("");
 }
 
+function itineraryRecords(state) {
+  const out = [];
+  (state.days || []).forEach((day, di) => {
+    const iso = getDayIsoDate(state.tripStartDate, di);
+    const slots = computeTimeline(day, state.routes);
+    let prevId = hotelStartId(day.id);
+    (day.spots || []).forEach((spot) => {
+      const rk = routeKey(prevId, spot.id);
+      const route = (state.routes || {})[rk] || {};
+      const rt = route.recordedTime || 0;
+      if (rt > 0) {
+        const prevName = prevId === hotelStartId(day.id)
+          ? (day.startHotelName || "出發")
+          : ((day.spots.find((s) => s.id === prevId) || {}).name || "");
+        const rslot = slots[rk] || {};
+        out.push({ dayId: day.id, values: {
+          Details: `${prevName} - ${spot.name}`, Day: day.label,
+          "日期": dateCell(iso, rslot.start, rslot.end),
+          "移動方式": enumTransportToNotion(route.transport),
+          "時間": formatDuration(rt),
+        } });
+      }
+      const slot = slots[spot.id] || {};
+      out.push({ dayId: day.id, values: {
+        Details: spot.name, Day: day.label,
+        "日期": dateCell(iso, slot.start, slot.end),
+        "時間": formatDuration(spot.stayDuration),
+        "類別": enumCategoryToNotion(spot.category),
+        "營業時間": spot.openingHours || "",
+        "備註": spot.notes || "",
+        "圖片": spot.imageUrl || "",
+        "地址": spot.resolvedAddress || "",
+      } });
+      prevId = spot.id;
+    });
+  });
+  return out;
+}
+
+function accRecord(a) {
+  const range = a.checkIn
+    ? `${isoToNotionDate(a.checkIn)}${a.checkOut ? " → " + isoToNotionDate(a.checkOut) : ""}`
+    : "";
+  return { values: {
+    Name: a.name || "", image: a.imageUrl || "", "付款類型": a.paymentStatus || "",
+    "位置": a.mapUrl || "", "地址": a.address || "", "城市": a.city || "",
+    "日期": range, "網址": a.bookingUrl || "", "花費": a.cost || "", "類型": a.type || "",
+  } };
+}
+
+function flightRecord(f) {
+  return { values: {
+    Transport: f.direction || "", "No.": f.flightNo || "",
+    "出發時間": f.departTime || "", "出發機場": f.fromAirport || "",
+    "抵達時間": f.arriveTime || "", "抵達機場": f.toAirport || "",
+    "等級": f.cabin || "", "航空公司": f.airline || "",
+    "類型": f.international ? "International" : "Domestic",
+    "飛行時間": f.duration || "",
+  } };
+}
+
+function guideRecord(g) {
+  return { values: {
+    Name: g.title || "", "圖片": g.imageUrl || "", "城市": g.city || "", "筆記": "",
+  }, body: g.body || "" };
+}
+
+/** state → 各 DB 的正規化 records（僅 app 現有資料） */
+export function buildRecords(state) {
+  return {
+    "行程": itineraryRecords(state),
+    "住宿": (state.accommodations || []).map(accRecord),
+    "交通": (state.flights || []).map(flightRecord),
+    "旅遊攻略": (state.guides || []).map(guideRecord),
+  };
+}
+
 /** "2026-07-15" → "July 15, 2026" */
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 function isoToNotionDate(iso) {
