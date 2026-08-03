@@ -5,10 +5,159 @@
 import { serializeCsv, formatDuration, enumCategoryToNotion, enumTransportToNotion } from "./notion-csv.js";
 import { safeFileStem } from "./export.js";
 import { computeTimeline } from "../timeline.js";
-import { getDayIsoDate, routeKey, hotelStartId, hotelEndId } from "../utils.js";
+import { getDayIsoDate, routeKey, hotelStartId } from "../utils.js";
 
 const enc = new TextEncoder();
 const file = (path, str) => ({ path, bytes: enc.encode(str) });
+
+/** 32-bit 字串雜湊（FNV-1a 變體 + final mix），純同步 */
+function h32(str, seed) {
+  let h = seed >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca77) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae3d) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+/** 確定性 32-hex ID（4 段 32-bit hash 串接），鏡像 Notion 的 32 碼 hex 檔名慣例 */
+export function notionId(seed) {
+  const s = String(seed);
+  return [0x811c9dc5, 0x01000193, 0xdeadbeef, 0xcafebabe]
+    .map((sd) => h32(s, sd).toString(16).padStart(8, "0"))
+    .join("");
+}
+
+function itineraryRecords(state) {
+  const out = [];
+  (state.days || []).forEach((day, di) => {
+    const iso = getDayIsoDate(state.tripStartDate, di);
+    const slots = computeTimeline(day, state.routes);
+    let prevId = hotelStartId(day.id);
+    (day.spots || []).forEach((spot) => {
+      const rk = routeKey(prevId, spot.id);
+      const route = (state.routes || {})[rk] || {};
+      const rt = route.recordedTime || 0;
+      if (rt > 0) {
+        const prevName = prevId === hotelStartId(day.id)
+          ? (day.startHotelName || "出發")
+          : ((day.spots.find((s) => s.id === prevId) || {}).name || "");
+        const rslot = slots[rk] || {};
+        out.push({ dayId: day.id, values: {
+          Details: `${prevName} - ${spot.name}`, Day: day.label,
+          "日期": dateCell(iso, rslot.start, rslot.end),
+          "移動方式": enumTransportToNotion(route.transport),
+          "時間": formatDuration(rt),
+        } });
+      }
+      const slot = slots[spot.id] || {};
+      out.push({ dayId: day.id, values: {
+        Details: spot.name, Day: day.label,
+        "日期": dateCell(iso, slot.start, slot.end),
+        "時間": formatDuration(spot.stayDuration),
+        "類別": enumCategoryToNotion(spot.category),
+        "營業時間": spot.openingHours || "",
+        "備註": spot.notes || "",
+        "圖片": spot.imageUrl || "",
+        "地址": spot.resolvedAddress || "",
+      } });
+      prevId = spot.id;
+    });
+  });
+  return out;
+}
+
+function accRecord(a) {
+  const range = a.checkIn
+    ? `${isoToNotionDate(a.checkIn)}${a.checkOut ? " → " + isoToNotionDate(a.checkOut) : ""}`
+    : "";
+  return { values: {
+    Name: a.name || "", image: a.imageUrl || "", "付款類型": a.paymentStatus || "",
+    "位置": a.mapUrl || "", "地址": a.address || "", "城市": a.city || "",
+    "日期": range, "網址": a.bookingUrl || "", "花費": a.cost || "", "類型": a.type || "",
+  } };
+}
+
+function flightRecord(f) {
+  return { values: {
+    Transport: f.direction || "", "No.": f.flightNo || "",
+    "出發時間": f.departTime || "", "出發機場": f.fromAirport || "",
+    "抵達時間": f.arriveTime || "", "抵達機場": f.toAirport || "",
+    "等級": f.cabin || "", "航空公司": f.airline || "",
+    "類型": f.international ? "International" : "Domestic",
+    "飛行時間": f.duration || "",
+  } };
+}
+
+function guideRecord(g) {
+  return { values: {
+    Name: g.title || "", "圖片": g.imageUrl || "", "城市": g.city || "", "筆記": "",
+  }, body: g.body || "" };
+}
+
+/** state → 各 DB 的正規化 records（僅 app 現有資料） */
+export function buildRecords(state) {
+  return {
+    "行程": itineraryRecords(state),
+    "住宿": (state.accommodations || []).map(accRecord),
+    "交通": (state.flights || []).map(flightRecord),
+    "旅遊攻略": (state.guides || []).map(guideRecord),
+  };
+}
+
+/** 各 DB 的欄位規格（順序完全照 Notion template） */
+export const DB_SPECS = {
+  "行程": {
+    titleProp: "Details",
+    viewCols: ["Details", "日期", "時間", "類別", "移動方式", "營業時間", "備註"],
+    allCols: ["Details", "Day", "備註", "圖片", "地址", "日期", "時間", "營業時間", "移動方式", "類別"],
+    pageProps: ["日期", "類別", "時間", "備註", "圖片", "營業時間", "地址"],
+  },
+  "住宿": {
+    titleProp: "Name",
+    viewCols: ["Name", "類型", "地址", "image", "日期", "位置", "付款類型", "花費", "網址", "城市"],
+    allCols: ["Name", "image", "付款類型", "位置", "地址", "城市", "日期", "網址", "花費", "類型"],
+    pageProps: ["類型", "地址", "image", "日期", "位置", "付款類型", "花費", "網址", "城市"],
+  },
+  "交通": {
+    titleProp: "Transport",
+    viewCols: ["航空公司", "Transport", "No.", "等級", "出發機場", "出發時間", "抵達機場", "抵達時間", "飛行時間", "類型"],
+    allCols: ["Transport", "No.", "出發時間", "出發機場", "抵達時間", "抵達機場", "等級", "航空公司", "類型", "飛行時間"],
+    pageProps: ["航空公司", "類型", "No.", "等級", "出發時間", "出發機場", "飛行時間", "抵達時間", "抵達機場"],
+  },
+  "旅遊攻略": {
+    titleProp: "Name",
+    viewCols: ["Name"],
+    allCols: ["Name", "圖片", "城市", "筆記"],
+    pageProps: ["圖片", "城市"],
+    hasBody: true,
+  },
+};
+
+/** 依 DB 規格產出檢視 CSV + _all CSV + 每列 per-row 子頁 md */
+export function emitDbFiles(stem, dbName, records, dbId) {
+  const spec = DB_SPECS[dbName];
+  const files = [];
+  const toRows = (cols) => [cols, ...records.map((r) => cols.map((c) => r.values[c] ?? ""))];
+  files.push(file(`${stem}/${dbName} ${dbId}.csv`, serializeCsv(toRows(spec.viewCols))));
+  files.push(file(`${stem}/${dbName} ${dbId}_all.csv`, serializeCsv(toRows(spec.allCols))));
+  records.forEach((r, i) => {
+    const title = r.values[spec.titleProp] || "Untitled";
+    const seed = dbName === "行程"
+      ? `row:行程:${title}:${r.dayId}:${i}`
+      : `row:${dbName}:${title}:${i}`;
+    const id = notionId(seed);
+    const lines = [`# ${title}`, ""];
+    for (const p of spec.pageProps) {
+      const v = r.values[p];
+      if (v) lines.push(`${p}: ${v}`);
+    }
+    if (spec.hasBody && r.body) lines.push("", r.body);
+    files.push(file(`${stem}/${dbName}/${safeFileStem(title)} ${id}.md`, lines.join("\n")));
+  });
+  return files;
+}
 
 /** "2026-07-15" → "July 15, 2026" */
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -25,88 +174,34 @@ function dateCell(iso, start, end) {
   return `${base} ${start} (GMT+8)` + (end ? ` → ${end}` : "");
 }
 
-function buildItineraryCsv(state) {
-  const header = ["日期", "Day", "Details", "類別", "移動方式", "時間", "備註", "營業時間", "圖片", "地址", "緯度", "經度"];
-  const rows = [header];
-  state.days.forEach((day, di) => {
-    const iso = getDayIsoDate(state.tripStartDate, di);
-    const slots = computeTimeline(day, state.routes);
-    let prevId = hotelStartId(day.id);
-    day.spots.forEach((spot) => {
-      // 先輸出前一段交通（若有 recordedTime）
-      const rk = routeKey(prevId, spot.id);
-      const rt = (state.routes[rk] || {}).recordedTime || 0;
-      if (rt > 0) {
-        const prevName = prevId === hotelStartId(day.id) ? (day.startHotelName || "出發") : (day.spots.find((s) => s.id === prevId)?.name || "");
-        const rslot = slots[rk] || {};
-        rows.push([
-          dateCell(iso, rslot.start, rslot.end), day.label, `${prevName} - ${spot.name}`,
-          "", enumTransportToNotion((state.routes[rk] || {}).transport), formatDuration(rt),
-          "", "", "", "", "", "",
-        ]);
-      }
-      const slot = slots[spot.id] || {};
-      rows.push([
-        dateCell(iso, slot.start, slot.end), day.label, spot.name,
-        enumCategoryToNotion(spot.category), "", formatDuration(spot.stayDuration),
-        spot.notes || "", spot.openingHours || "", spot.imageUrl || "", spot.resolvedAddress || "",
-        spot.lat != null ? spot.lat : "", spot.lng != null ? spot.lng : "",
-      ]);
-      prevId = spot.id;
-    });
-  });
-  return serializeCsv(rows);
-}
-
-function buildAccommodationCsv(list) {
-  const header = ["Name", "image", "付款類型", "位置", "地址", "城市", "日期", "網址", "花費", "類型"];
-  const rows = [header];
-  for (const a of list) {
-    const range = a.checkIn ? `${isoToNotionDate(a.checkIn)}${a.checkOut ? " → " + isoToNotionDate(a.checkOut) : ""}` : "";
-    rows.push([a.name, a.imageUrl, a.paymentStatus, a.mapUrl, a.address, a.city, range, a.bookingUrl, a.cost, a.type]);
-  }
-  return serializeCsv(rows);
-}
-
-function buildFlightCsv(list) {
-  const header = ["Transport", "No.", "出發時間", "出發機場", "抵達時間", "抵達機場", "等級", "航空公司", "類型", "飛行時間"];
-  const rows = [header];
-  for (const f of list) {
-    rows.push([f.direction, f.flightNo, f.departTime, f.fromAirport, f.arriveTime, f.toAirport, f.cabin, f.airline, f.international ? "International" : "Domestic", f.duration]);
-  }
-  return serializeCsv(rows);
-}
-
-function buildGuideCsv(list) {
-  const header = ["Name", "圖片", "城市", "筆記"];
-  const rows = [header];
-  for (const g of list) rows.push([g.title, g.imageUrl, g.city, ""]);
-  return serializeCsv(rows);
-}
-
-function buildTopMd(state) {
+/** 頂層導覽頁：快速導覽（URL-encoded 相對連結）+ 待辦 + 備註 */
+export function buildTopMd(state, links) {
   const lines = [`# ${state.tripName}`, ""];
-  if (state.todos.length) {
+  if (links.length) {
+    lines.push("## 快速導覽", "", "---", "");
+    for (const l of links) lines.push(`[${l.name}](${encodeURI(l.csvPath)})`);
+    lines.push("", "---", "");
+  }
+  const todos = state.todos || [];
+  if (todos.length) {
     lines.push("## 待辦事項", "");
-    for (const t of state.todos) lines.push(`- [${t.done ? "x" : " "}] ${t.text}`);
+    for (const t of todos) lines.push(`- [${t.done ? "x" : " "}] ${t.text}`);
     lines.push("");
   }
-  if (state.notes) { lines.push("## 備註", "", state.notes, ""); }
+  if (state.notes) lines.push("## 備註", "", state.notes, "");
   return lines.join("\n");
 }
 
-/** Trip → Notion 檔案集 */
+/** Trip → Notion 原生匯出檔案集（鏡像結構） */
 export function tripToNotionFiles(state) {
   const stem = safeFileStem(state.tripName);
-  const files = [file(`${stem}.md`, buildTopMd(state))];
-  files.push(file(`${stem}/行程.csv`, buildItineraryCsv(state)));
-  if (state.accommodations?.length) files.push(file(`${stem}/住宿.csv`, buildAccommodationCsv(state.accommodations)));
-  if (state.flights?.length) files.push(file(`${stem}/交通.csv`, buildFlightCsv(state.flights)));
-  if (state.guides?.length) {
-    files.push(file(`${stem}/旅遊攻略.csv`, buildGuideCsv(state.guides)));
-    for (const g of state.guides) {
-      files.push(file(`${stem}/旅遊攻略/${safeFileStem(g.title)}.md`, `# ${g.title}\n\n${g.body || ""}`));
-    }
-  }
+  const recs = buildRecords(state);
+  const order = ["行程", "住宿", "交通", "旅遊攻略"];
+  const dbMeta = order
+    .filter((n) => recs[n] && recs[n].length)
+    .map((n) => ({ name: n, id: notionId(`db:${n}`) }));
+  const links = dbMeta.map((m) => ({ name: m.name, csvPath: `${stem}/${m.name} ${m.id}.csv` }));
+  const files = [file(`${stem} ${notionId(state.tripName)}.md`, buildTopMd(state, links))];
+  for (const m of dbMeta) files.push(...emitDbFiles(stem, m.name, recs[m.name], m.id));
   return files;
 }
