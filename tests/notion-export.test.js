@@ -23,31 +23,51 @@ function makeState() {
   };
 }
 
-describe("tripToNotionFiles", () => {
+describe("tripToNotionFiles（原生鏡像）", () => {
   const files = tripToNotionFiles(makeState());
   const byPath = Object.fromEntries(files.map((f) => [f.path, dec(f.bytes)]));
+  const paths = Object.keys(byPath);
 
-  it("含頂層 md 與行程 CSV", () => {
-    expect(byPath["京都測試.md"]).toContain("換日圓");
-    expect(byPath["京都測試.md"]).toContain("- [x] 訂票");
-    expect(byPath["京都測試/行程.csv"]).toBeDefined();
+  it("頂層頁檔名帶 32-hex ID、含導覽與待辦", () => {
+    const top = paths.find((p) => /^京都測試 [0-9a-f]{32}\.md$/.test(p));
+    expect(top).toBeTruthy();
+    expect(byPath[top]).toContain("## 快速導覽");
+    expect(byPath[top]).toContain("- [x] 訂票");
+    expect(byPath[top]).toContain("- [ ] 換日圓");
   });
-  it("行程 CSV 表頭可被自身辨識為 itinerary", () => {
-    const rows = parseCsv(byPath["京都測試/行程.csv"]);
-    expect(detectCsvType(rows[0])).toBe("itinerary");
+
+  it("導覽連結為 URL-encoded 相對路徑，指向帶 ID 的 CSV", () => {
+    const top = byPath[paths.find((p) => /^京都測試 [0-9a-f]{32}\.md$/.test(p))];
+    const stem = encodeURIComponent("京都測試");
+    expect(top).toMatch(new RegExp(`\\[行程\\]\\(${stem}/${encodeURIComponent("行程")}%20[0-9a-f]{32}\\.csv\\)`));
   });
-  it("景點列含中文類別與時長字串、交通段獨立成列", () => {
-    const csv = byPath["京都測試/行程.csv"];
-    expect(csv).toContain("景點參觀");
-    expect(csv).toContain("1 hr 25 mins"); // 85 分
-    expect(csv).toContain("伏見稻荷 - 京都車站"); // leg
-    expect(csv).toContain("大眾運輸");
+
+  it("每個 present DB 有帶 ID 的雙 CSV 與不帶 ID 的子頁資料夾", () => {
+    expect(paths.some((p) => /^京都測試\/行程 [0-9a-f]{32}\.csv$/.test(p))).toBe(true);
+    expect(paths.some((p) => /^京都測試\/行程 [0-9a-f]{32}_all\.csv$/.test(p))).toBe(true);
+    expect(paths.some((p) => /^京都測試\/行程\/伏見稻荷 [0-9a-f]{32}\.md$/.test(p))).toBe(true);
+    expect(paths.some((p) => /^京都測試\/住宿 [0-9a-f]{32}\.csv$/.test(p))).toBe(true);
+    expect(paths.some((p) => /^京都測試\/交通 [0-9a-f]{32}\.csv$/.test(p))).toBe(true);
+    expect(paths.some((p) => /^京都測試\/旅遊攻略 [0-9a-f]{32}\.csv$/.test(p))).toBe(true);
   });
-  it("有資料才產生住宿/交通/攻略檔", () => {
-    expect(byPath["京都測試/住宿.csv"]).toContain("季針小路");
-    expect(byPath["京都測試/交通.csv"]).toContain("CX564");
-    expect(byPath["京都測試/旅遊攻略.csv"]).toContain("京都景點");
-    expect(byPath["京都測試/旅遊攻略/京都景點.md"]).toContain("清水寺");
+
+  it("行程檢視 CSV 可被辨識為 itinerary 且不含座標", () => {
+    const p = paths.find((x) => /^京都測試\/行程 [0-9a-f]{32}\.csv$/.test(x));
+    expect(detectCsvType(parseCsv(byPath[p])[0])).toBe("itinerary");
+    expect(byPath[p]).not.toContain("34.96");
+  });
+
+  it("無資料的 DB 不產檔（此 state 皆有資料時共 4 個 DB）", () => {
+    const empty = tripToNotionFiles({ ...makeState(), accommodations: [], flights: [], guides: [] });
+    const ep = empty.map((f) => f.path);
+    expect(ep.some((p) => p.includes("/住宿 "))).toBe(false);
+    expect(ep.some((p) => p.includes("/行程 "))).toBe(true);
+  });
+
+  it("確定性：同一 state 兩次匯出得到完全相同的檔案集", () => {
+    const a = tripToNotionFiles(makeState()).map((f) => [f.path, dec(f.bytes)]);
+    const b = tripToNotionFiles(makeState()).map((f) => [f.path, dec(f.bytes)]);
+    expect(a).toEqual(b);
   });
 });
 
