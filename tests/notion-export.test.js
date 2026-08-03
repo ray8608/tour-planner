@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tripToNotionFiles } from "../js/services/notion-export.js";
+import { tripToNotionFiles, notionId } from "../js/services/notion-export.js";
 import { parseCsv, detectCsvType } from "../js/services/notion-csv.js";
 
 const dec = (u) => new TextDecoder().decode(u);
@@ -48,5 +48,15 @@ describe("tripToNotionFiles", () => {
     expect(byPath["京都測試/交通.csv"]).toContain("CX564");
     expect(byPath["京都測試/旅遊攻略.csv"]).toContain("京都景點");
     expect(byPath["京都測試/旅遊攻略/京都景點.md"]).toContain("清水寺");
+  });
+});
+
+describe("notionId", () => {
+  it("回傳 32 個小寫 hex 字元", () => {
+    expect(notionId("行程")).toMatch(/^[0-9a-f]{32}$/);
+  });
+  it("同一 seed 確定性、不同 seed 不同", () => {
+    expect(notionId("db:行程")).toBe(notionId("db:行程"));
+    expect(notionId("db:行程")).not.toBe(notionId("db:住宿"));
   });
 });

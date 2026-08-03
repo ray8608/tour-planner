@@ -10,6 +10,25 @@ import { getDayIsoDate, routeKey, hotelStartId, hotelEndId } from "../utils.js";
 const enc = new TextEncoder();
 const file = (path, str) => ({ path, bytes: enc.encode(str) });
 
+/** 32-bit 字串雜湊（FNV-1a 變體 + final mix），純同步 */
+function h32(str, seed) {
+  let h = seed >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca77) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae3d) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+/** 確定性 32-hex ID（4 段 32-bit hash 串接），鏡像 Notion 的 32 碼 hex 檔名慣例 */
+export function notionId(seed) {
+  const s = String(seed);
+  return [0x811c9dc5, 0x01000193, 0xdeadbeef, 0xcafebabe]
+    .map((sd) => h32(s, sd).toString(16).padStart(8, "0"))
+    .join("");
+}
+
 /** "2026-07-15" → "July 15, 2026" */
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 function isoToNotionDate(iso) {
