@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tripToNotionFiles, notionId, buildRecords } from "../js/services/notion-export.js";
+import { tripToNotionFiles, notionId, buildRecords, emitDbFiles, DB_SPECS } from "../js/services/notion-export.js";
 import { parseCsv, detectCsvType } from "../js/services/notion-csv.js";
 
 const dec = (u) => new TextDecoder().decode(u);
@@ -95,5 +95,44 @@ describe("buildRecords", () => {
     const g = recs["旅遊攻略"][0];
     expect(g.values.Name).toBe("京都景點");
     expect(g.body).toContain("清水寺");
+  });
+});
+
+describe("emitDbFiles", () => {
+  const recs = buildRecords(makeState());
+  const files = emitDbFiles("京都測試", "行程", recs["行程"], "abc");
+  const byPath = Object.fromEntries(files.map((f) => [f.path, dec(f.bytes)]));
+
+  it("產出檢視 + _all 雙 CSV，欄位順序正確", () => {
+    const view = parseCsv(byPath["京都測試/行程 abc.csv"]);
+    expect(view[0]).toEqual(["Details", "日期", "時間", "類別", "移動方式", "營業時間", "備註"]);
+    const all = parseCsv(byPath["京都測試/行程 abc_all.csv"]);
+    expect(all[0]).toEqual(["Details", "Day", "備註", "圖片", "地址", "日期", "時間", "營業時間", "移動方式", "類別"]);
+  });
+
+  it("檢視 CSV 不含座標字串", () => {
+    expect(byPath["京都測試/行程 abc.csv"]).not.toContain("緯度");
+    expect(byPath["京都測試/行程 abc.csv"]).not.toContain("34.96");
+  });
+
+  it("每列產一份 per-row 子頁（標題 + 非空屬性、順序正確）", () => {
+    const pagePath = Object.keys(byPath).find((p) => /^京都測試\/行程\/伏見稻荷 [0-9a-f]{32}\.md$/.test(p));
+    expect(pagePath).toBeTruthy();
+    const md = byPath[pagePath];
+    expect(md.startsWith("# 伏見稻荷\n")).toBe(true);
+    expect(md).toContain("類別: 景點參觀");
+    expect(md).toContain("營業時間: 24 hrs");
+    expect(md).not.toContain("Day:");        // 行程頁不含 Day
+    expect(md).not.toContain("移動方式:");     // 景點列無移動方式 → 省略
+  });
+
+  it("旅遊攻略頁：屬性後接 body 內文", () => {
+    const gFiles = emitDbFiles("京都測試", "旅遊攻略", recs["旅遊攻略"], "gid");
+    const gByPath = Object.fromEntries(gFiles.map((f) => [f.path, dec(f.bytes)]));
+    const path = Object.keys(gByPath).find((p) => /^京都測試\/旅遊攻略\/京都景點 [0-9a-f]{32}\.md$/.test(p));
+    expect(gByPath[path]).toContain("城市: 京都");
+    expect(gByPath[path]).toContain("清水寺");
+    // _all 表頭可被辨識為 guide
+    expect(detectCsvType(parseCsv(gByPath["京都測試/旅遊攻略 gid_all.csv"])[0])).toBe("guide");
   });
 });
