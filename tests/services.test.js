@@ -17,6 +17,7 @@ import {
 import {
   googleTravelMode,
   parseGeocoderResults,
+  parseGeocoderResultsAll,
   parseDirectionsSeconds,
 } from "../js/services/gmaps.js";
 
@@ -198,5 +199,19 @@ describe("gmaps 解析", () => {
   });
   it("parseDirectionsSeconds 保留合法的 0（不誤判為失敗）", () => {
     expect(parseDirectionsSeconds({ routes: [{ legs: [{ duration: { value: 0 } }] }] })).toBe(0);
+  });
+
+  it("parseGeocoderResultsAll 支援函式式與數值式 location、過濾無效", () => {
+    const results = [
+      { geometry: { location: { lat: () => 35.68, lng: () => 139.76 } }, formatted_address: "Tokyo" },
+      { geometry: { location: { lat: 34.69, lng: 135.5 } }, formatted_address: "Osaka" },
+      { geometry: {} },
+    ];
+    expect(parseGeocoderResultsAll(results)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "Tokyo" },
+      { lat: 34.69, lng: 135.5, address: "Osaka" },
+    ]);
+    expect(parseGeocoderResultsAll([])).toEqual([]);
+    expect(parseGeocoderResultsAll(null)).toEqual([]);
   });
 });

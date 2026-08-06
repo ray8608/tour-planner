@@ -26,6 +26,21 @@ export function parseGeocoderResults(results) {
   return { lat, lng, address: r.formatted_address || "" };
 }
 
+/** 解析 Geocoder 多筆結果 → [{lat,lng,address}]（過濾無效座標） */
+export function parseGeocoderResultsAll(results) {
+  const list = Array.isArray(results) ? results : [];
+  const out = [];
+  for (const r of list) {
+    const loc = r?.geometry?.location;
+    if (!loc) continue;
+    const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+    const lng = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+    if (typeof lat !== "number" || typeof lng !== "number" || Number.isNaN(lat) || Number.isNaN(lng)) continue;
+    out.push({ lat, lng, address: r.formatted_address || "" });
+  }
+  return out;
+}
+
 /** 解析 DirectionsService 結果 → 秒數 | null */
 export function parseDirectionsSeconds(response) {
   const leg = response?.routes?.[0]?.legs?.[0];
@@ -99,6 +114,22 @@ export async function googleGeocode(name, key) {
     return parseGeocoderResults(resp?.results);
   } catch (_) {
     return null;
+  }
+}
+
+/**
+ * 以 Google Geocoder 查地名 → 多筆 [{lat,lng,address}]（失敗回 []）
+ * @param {string} name
+ * @param {string} key
+ */
+export async function googleGeocodeCandidates(name, key) {
+  try {
+    const maps = await loadGoogleMaps(key);
+    const geocoder = new maps.Geocoder();
+    const resp = await geocoder.geocode({ address: name });
+    return parseGeocoderResultsAll(resp?.results);
+  } catch (_) {
+    return [];
   }
 }
 
