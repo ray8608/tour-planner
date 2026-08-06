@@ -180,6 +180,7 @@ function renderRouteItem(state, dayId, rk, slot) {
   const rh = Math.floor(rt / 60);
   const rm = rt % 60;
   const isFlight = route.transport === "flight";
+  const isTransit = route.transport === "transit";
   const toggle = TRANSPORT_MODES.map(
     (m) => `<button data-action="route-transport" data-rk="${escapeAttr(rk)}" data-transport="${m.id}"
                     class="${route.transport === m.id ? "is-active" : ""}"
@@ -191,10 +192,12 @@ function renderRouteItem(state, dayId, rk, slot) {
     : `<button class="btn btn--icon btn--ghost route-auto" data-action="auto-route"
                   data-day="${escapeAttr(dayId)}" data-rk="${escapeAttr(rk)}"
                   title="用 OSRM 估算交通時間" aria-label="自動估算交通時間">⚡</button>`;
-  const flightRow = isFlight
+  // 飛機／大眾運輸可加填交通備註（航班／班次、月台等）
+  const noteRow = (isFlight || isTransit)
     ? `<input class="route-note" data-action="route-note" data-rk="${escapeAttr(rk)}"
                    value="${escapeAttr(route.note || "")}"
-                   placeholder="航班資訊，例：台灣虎航 IT250 桃園→關西" aria-label="航班資訊" />`
+                   placeholder="${isFlight ? "航班資訊，例：台灣虎航 IT250 桃園→關西" : "交通備註，例：JR 特急 はるか／3 號月台"}"
+                   aria-label="${isFlight ? "航班資訊" : "交通備註"}" />`
     : "";
   return `
     <li class="tl-item">
@@ -213,7 +216,7 @@ function renderRouteItem(state, dayId, rk, slot) {
           </span>
           ${autoBtn}
         </div>
-        ${flightRow}
+        ${noteRow}
       </div>
     </li>`;
 }

@@ -839,6 +839,10 @@ html[data-trips="open"] .trip-menu { transform: translateX(0); }
   .spot-name { flex: 1 1 auto; font-size: var(--fs-base); }
   .spot-card__actions { flex: 1 1 100%; justify-content: flex-end; opacity: 1; margin-top: var(--sp-1); }
   .spot-card__actions .btn--icon { width: 34px; height: 34px; } /* 觸控目標加大 */
+
+  /* 交通列：手機上交通工具 + 交通時間過寬會超出畫面，允許換行並縮小間距 */
+  .route-card { flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
+  .transport-toggle button { padding: 3px 7px; }
 }
 
 /* ============================================================
