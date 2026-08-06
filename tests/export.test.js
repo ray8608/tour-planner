@@ -135,6 +135,20 @@ describe("export.buildKml", () => {
     const st = makeState({ tripName: "A & B <trip>" });
     expect(buildKml(st)).toContain("A &amp; B &lt;trip&gt;");
   });
+  it("飯店有座標時輸出 Point 並納入路徑", () => {
+    const st = makeState();
+    const d0 = st.days[0];
+    d0.startHotelName = "起點旅館";
+    d0.startHotelLat = 35.0; d0.startHotelLng = 139.0; d0.startHotelAddress = "起點地址";
+    d0.endHotelName = "終點旅館";
+    d0.endHotelLat = 35.2; d0.endHotelLng = 139.2; d0.endHotelAddress = "";
+    // 讓當天至少有一個座標景點，確認路徑順序：起點飯店 → 景點 → 終點飯店
+    d0.spots[0].lat = 35.1; d0.spots[0].lng = 139.1;
+    const kml = buildKml(st);
+    expect(kml).toContain("<coordinates>139,35</coordinates>");       // 起點飯店 Point
+    expect(kml).toContain("<coordinates>139.2,35.2</coordinates>");   // 終點飯店 Point
+    expect(kml).toContain("139,35 139.1,35.1 139.2,35.2");            // LineString 路徑序
+  });
 });
 
 describe("export.buildCsv", () => {

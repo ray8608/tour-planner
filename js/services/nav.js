@@ -10,9 +10,9 @@
 
 import { getState } from "../state.js";
 import { getDayDateTime } from "../utils.js";
-import { geocode as osmGeocode } from "./geocode.js";
+import { geocode as osmGeocode, geocodeCandidates as osmGeocodeCandidates } from "./geocode.js";
 import { osrmRoute, osrmProfileFor } from "./route.js";
-import { googleGeocode, googleRouteSeconds, isGoogleAuthFailed } from "./gmaps.js";
+import { googleGeocode, googleGeocodeCandidates, googleRouteSeconds, isGoogleAuthFailed } from "./gmaps.js";
 
 export { isGoogleAuthFailed };
 
@@ -46,6 +46,19 @@ export async function geocodePlace(name) {
     if (g) return g;
   }
   return osmGeocode(name);
+}
+
+/**
+ * 候選地名 → 多筆 [{lat,lng,address}]（找不到回 []）。有 Google key 先試 Google、空則回退 OSM。
+ * @param {string} name
+ */
+export async function geocodeCandidates(name) {
+  const key = activeGoogleKey();
+  if (key) {
+    const g = await googleGeocodeCandidates(name, key);
+    if (g.length) return g;
+  }
+  return osmGeocodeCandidates(name);
 }
 
 /**

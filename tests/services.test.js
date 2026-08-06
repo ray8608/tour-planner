@@ -6,7 +6,7 @@ import {
   weatherBadgeParts,
   getCachedForecast,
 } from "../js/services/weather.js";
-import { parseNominatim, parsePhoton } from "../js/services/geocode.js";
+import { parseNominatim, parsePhoton, parseNominatimAll, parsePhotonAll } from "../js/services/geocode.js";
 import {
   osrmProfileFor,
   parseOsrmDuration,
@@ -17,6 +17,7 @@ import {
 import {
   googleTravelMode,
   parseGeocoderResults,
+  parseGeocoderResultsAll,
   parseDirectionsSeconds,
 } from "../js/services/gmaps.js";
 
@@ -121,6 +122,33 @@ describe("geocode 解析", () => {
     expect(parsePhoton(data)).toEqual({ lat: 35.68, lng: 139.76, address: "Tokyo Tower, Tokyo, Japan" });
     expect(parsePhoton({ features: [] })).toBeNull();
   });
+
+  it("parseNominatimAll 回多筆並截到 limit、過濾 NaN", () => {
+    const data = [
+      { lat: "35.68", lon: "139.76", display_name: "A" },
+      { lat: "34.69", lon: "135.50", display_name: "B" },
+      { lat: "x", lon: "y", display_name: "壞資料" },
+    ];
+    expect(parseNominatimAll(data)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "A" },
+      { lat: 34.69, lng: 135.5, address: "B" },
+    ]);
+    expect(parseNominatimAll(data, 1)).toHaveLength(1);
+    expect(parseNominatimAll([])).toEqual([]);
+    expect(parseNominatimAll(null)).toEqual([]);
+  });
+
+  it("parsePhotonAll 逐 feature 解析", () => {
+    const data = { features: [
+      { geometry: { coordinates: [139.76, 35.68] }, properties: { name: "Tokyo Tower", city: "Tokyo", country: "Japan" } },
+      { geometry: { coordinates: [135.5, 34.69] }, properties: { name: "Osaka" } },
+    ] };
+    expect(parsePhotonAll(data)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "Tokyo Tower, Tokyo, Japan" },
+      { lat: 34.69, lng: 135.5, address: "Osaka" },
+    ]);
+    expect(parsePhotonAll({ features: [] })).toEqual([]);
+  });
 });
 
 describe("route 工具", () => {
@@ -171,5 +199,19 @@ describe("gmaps 解析", () => {
   });
   it("parseDirectionsSeconds 保留合法的 0（不誤判為失敗）", () => {
     expect(parseDirectionsSeconds({ routes: [{ legs: [{ duration: { value: 0 } }] }] })).toBe(0);
+  });
+
+  it("parseGeocoderResultsAll 支援函式式與數值式 location、過濾無效", () => {
+    const results = [
+      { geometry: { location: { lat: () => 35.68, lng: () => 139.76 } }, formatted_address: "Tokyo" },
+      { geometry: { location: { lat: 34.69, lng: 135.5 } }, formatted_address: "Osaka" },
+      { geometry: {} },
+    ];
+    expect(parseGeocoderResultsAll(results)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "Tokyo" },
+      { lat: 34.69, lng: 135.5, address: "Osaka" },
+    ]);
+    expect(parseGeocoderResultsAll([])).toEqual([]);
+    expect(parseGeocoderResultsAll(null)).toEqual([]);
   });
 });

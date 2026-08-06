@@ -20,6 +20,7 @@ import { renderApp } from "./render/index.js";
 import { initDrag } from "./drag.js";
 import { initShare, openShare, handleImportParam } from "./share.js";
 import { initTools, openCoordManager, openCommuteFill } from "./tools.js";
+import { initLocate, openLocatePicker } from "./locate.js";
 import { makeDay, makeSpot } from "./state.js";
 import { getDayIsoDate, hotelStartId, hotelEndId, routeKey } from "./utils.js";
 import * as weather from "./services/weather.js";
@@ -394,8 +395,12 @@ function onClick(e) {
     }
 
     case "geocode-spot":
-      geocodeSpot(dayId, spotId, el);
-      break;
+      openLocatePicker({ kind: "spot", dayId, spotId });
+      return;
+
+    case "geocode-hotel":
+      openLocatePicker({ kind: "hotel", dayId, field: el.dataset.field });
+      return;
 
     case "auto-route":
       autoRoute(dayId, rk, el);
@@ -653,34 +658,17 @@ async function scheduleWeatherFetch(state) {
 }
 
 // ---------------- 非同步：地理編碼 / 路線 ----------------
-/** 定位單一景點座標（以名稱） */
-async function geocodeSpot(dayId, spotId, btn) {
-  const day = getState().days.find((d) => d.id === dayId);
-  const spot = day && day.spots.find((s) => s.id === spotId);
-  if (!spot || !spot.name.trim()) return;
-  btn.classList.add("is-busy");
-  try {
-    const geo = await geocodePlace(spot.name.trim());
-    if (geo) {
-      commit((d) => {
-        const s = d.days.find((x) => x.id === dayId)?.spots.find((x) => x.id === spotId);
-        if (s) { s.lat = geo.lat; s.lng = geo.lng; s.resolvedAddress = geo.address; }
-      });
-    }
-  } catch (_) {
-    /* geocode 失敗：靜默 */
-  } finally {
-    // 成功時 commit 重繪已置換此按鈕（no-op）；失敗/無結果時於此清除忙碌狀態
-    btn.classList.remove("is-busy");
-  }
-}
-
-/** 解析路線端點（飯店以名稱 geocode；景點用既有座標或以名稱 geocode） */
+/** 解析路線端點（飯店優先用既有座標，無才 geocode；景點同理） */
 async function resolveEndpointCoords(day, id) {
-  if (id === hotelStartId(day.id) || id === hotelEndId(day.id)) {
-    const name = ((id === hotelStartId(day.id) ? day.startHotelName : day.endHotelName) || "").trim();
-    if (!name) return null;
-    return geocodePlace(name);
+  if (id === hotelStartId(day.id)) {
+    if (day.startHotelLat != null && day.startHotelLng != null) return { lat: day.startHotelLat, lng: day.startHotelLng };
+    const name = (day.startHotelName || "").trim();
+    return name ? geocodePlace(name) : null;
+  }
+  if (id === hotelEndId(day.id)) {
+    if (day.endHotelLat != null && day.endHotelLng != null) return { lat: day.endHotelLat, lng: day.endHotelLng };
+    const name = (day.endHotelName || "").trim();
+    return name ? geocodePlace(name) : null;
   }
   const spot = day.spots.find((s) => s.id === id);
   if (!spot) return null;
@@ -725,6 +713,7 @@ function init() {
   initDrag(root);
   initShare();
   initTools();
+  initLocate();
   subscribe(render);
   render();
   handleImportParam(); // ?import=<docId> 分享連結
