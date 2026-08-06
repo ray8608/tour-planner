@@ -13,6 +13,7 @@
 
 import { escapeHtml, escapeAttr, routeKey, hotelStartId, hotelEndId } from "./utils.js";
 import { getState, commit } from "./state.js";
+import { openLocatePicker } from "./locate.js";
 import { secondsToMinutes } from "./services/route.js";
 import { geocodePlace, routeSeconds, navServiceName, activeGoogleKey, departureForDay, isGoogleAuthFailed } from "./services/nav.js";
 
@@ -57,37 +58,48 @@ export function openCoordManager() {
   if (!mount) initTools();
   const items = [];
   getState().days.forEach((day, i) => {
+    const dayLabel = `第 ${i + 1} 天`;
+    if ((day.startHotelName || "").trim()) {
+      items.push({
+        key: `hs_${day.id}`, kind: "hotel", dayId: day.id, field: "startHotelName",
+        name: day.startHotelName.trim(), dayLabel: `${dayLabel}·起點`, hasCoords: day.startHotelLat != null,
+      });
+    }
     day.spots.forEach((spot) => {
       const name = (spot.name || "").trim();
       if (!name) return;
       items.push({
-        spotId: spot.id,
-        dayId: day.id,
-        name,
-        dayLabel: `第 ${i + 1} 天`,
-        hasCoords: spot.lat != null && spot.lng != null,
+        key: `sp_${spot.id}`, kind: "spot", spotId: spot.id, dayId: day.id,
+        name, dayLabel, hasCoords: spot.lat != null && spot.lng != null,
       });
     });
+    if ((day.endHotelName || "").trim()) {
+      items.push({
+        key: `he_${day.id}`, kind: "hotel", dayId: day.id, field: "endHotelName",
+        name: day.endHotelName.trim(), dayLabel: `${dayLabel}·終點`, hasCoords: day.endHotelLat != null,
+      });
+    }
   });
 
   const rows = items.length
     ? items
         .map(
           (it) => `
-        <div class="tool-row" data-spot="${escapeAttr(it.spotId)}">
-          <input type="checkbox" class="tool-cb" data-spot="${escapeAttr(it.spotId)}" ${it.hasCoords ? "" : "checked"} />
-          <span class="tool-icon" data-spot="${escapeAttr(it.spotId)}">${it.hasCoords ? "🟢" : "🔴"}</span>
+        <div class="tool-row" data-key="${escapeAttr(it.key)}">
+          <input type="checkbox" class="tool-cb" data-key="${escapeAttr(it.key)}" ${it.hasCoords ? "" : "checked"} />
+          <span class="tool-icon" data-key="${escapeAttr(it.key)}">${it.hasCoords ? "🟢" : "🔴"}</span>
           <span class="tool-row__name">${escapeHtml(it.name)}</span>
           <span class="tool-row__day">${escapeHtml(it.dayLabel)}</span>
+          <button class="btn btn--sm btn--ghost tool-pick" data-key="${escapeAttr(it.key)}" title="手動選擇地點">選</button>
         </div>`
         )
         .join("")
-    : `<div class="tool-empty">（尚無景點）</div>`;
+    : `<div class="tool-empty">（尚無景點或飯店）</div>`;
 
   openWith(`
-    <div class="tool-dialog" role="dialog" aria-modal="true" aria-label="景點座標管理">
-      <div class="tool-title">🔍 景點座標管理</div>
-      <p class="tool-desc">🟢 已定位 / 🔴 未定位。勾選後可批次查詢座標（供匯出 KML／CSV 定位更精準）。透過${escapeHtml(navServiceName())}查詢，較慢請耐心等候。</p>
+    <div class="tool-dialog" role="dialog" aria-modal="true" aria-label="座標管理">
+      <div class="tool-title">🔍 座標管理</div>
+      <p class="tool-desc">🟢 已定位 / 🔴 未定位。勾選後可批次查詢座標（供匯出 KML／CSV 定位更精準）；或按「選」手動挑選地點。透過${escapeHtml(navServiceName())}查詢，較慢請耐心等候。</p>
       <div class="tool-bar">
         <label class="tool-check"><input type="checkbox" id="tool-all" /> 全選</label>
         <button class="btn btn--sm btn--ghost" id="tool-fail">僅選未定位</button>
@@ -96,47 +108,67 @@ export function openCoordManager() {
       <div class="tool-status" id="tool-status"></div>
       <div class="tool-actions">
         <button class="btn btn--sm btn--ghost" data-tool="close">關閉</button>
-        <button class="btn btn--sm btn--primary" id="tool-refresh" ${items.length ? "" : "disabled"}>查詢勾選景點</button>
+        <button class="btn btn--sm btn--primary" id="tool-refresh" ${items.length ? "" : "disabled"}>查詢勾選項目</button>
       </div>
     </div>
   `);
 
-  const cbFor = (id) => mount.querySelector(`.tool-cb[data-spot="${cssId(id)}"]`);
-  const iconFor = (id) => mount.querySelector(`.tool-icon[data-spot="${cssId(id)}"]`);
+  const cbFor = (key) => mount.querySelector(`.tool-cb[data-key="${cssId(key)}"]`);
+  const iconFor = (key) => mount.querySelector(`.tool-icon[data-key="${cssId(key)}"]`);
   const statusEl = mount.querySelector("#tool-status");
   const refreshBtn = mount.querySelector("#tool-refresh");
 
   mount.querySelector("#tool-all")?.addEventListener("change", (e) => {
-    items.forEach((it) => { const cb = cbFor(it.spotId); if (cb) cb.checked = e.target.checked; });
+    items.forEach((it) => { const cb = cbFor(it.key); if (cb) cb.checked = e.target.checked; });
   });
   mount.querySelector("#tool-fail")?.addEventListener("click", () => {
     const allCb = mount.querySelector("#tool-all");
     if (allCb) allCb.checked = false;
-    items.forEach((it) => { const cb = cbFor(it.spotId); if (cb) cb.checked = !it.hasCoords; });
+    items.forEach((it) => { const cb = cbFor(it.key); if (cb) cb.checked = !it.hasCoords; });
+  });
+
+  // 每列「選」→ 開對話框（先關座標管理避免兩層對話框）
+  mount.querySelectorAll(".tool-pick").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const it = items.find((x) => x.key === btn.dataset.key);
+      if (!it) return;
+      closeTools();
+      openLocatePicker(
+        it.kind === "hotel"
+          ? { kind: "hotel", dayId: it.dayId, field: it.field }
+          : { kind: "spot", dayId: it.dayId, spotId: it.spotId }
+      );
+    });
   });
 
   refreshBtn?.addEventListener("click", async () => {
-    const selected = items.filter((it) => cbFor(it.spotId)?.checked);
-    if (!selected.length) { statusEl.textContent = "請先勾選景點"; return; }
+    const selected = items.filter((it) => cbFor(it.key)?.checked);
+    if (!selected.length) { statusEl.textContent = "請先勾選項目"; return; }
     refreshBtn.disabled = true;
     let ok = 0, fail = 0;
     for (let i = 0; i < selected.length; i++) {
       const it = selected[i];
       statusEl.textContent = `查詢中… ${i + 1} / ${selected.length}`;
-      const icon = iconFor(it.spotId);
+      const icon = iconFor(it.key);
       if (icon) icon.textContent = "⏳";
       const geo = await geocodePlace(it.name);
       commit((d) => {
-        const sp = d.days.find((x) => x.id === it.dayId)?.spots.find((x) => x.id === it.spotId);
-        if (sp) {
-          sp.lat = geo?.lat ?? null;
-          sp.lng = geo?.lng ?? null;
-          sp.resolvedAddress = geo?.address ?? null;
+        const day = d.days.find((x) => x.id === it.dayId);
+        if (!day) return;
+        if (it.kind === "hotel") {
+          if (it.field === "startHotelName") {
+            day.startHotelLat = geo?.lat ?? null; day.startHotelLng = geo?.lng ?? null; day.startHotelAddress = geo?.address ?? "";
+          } else {
+            day.endHotelLat = geo?.lat ?? null; day.endHotelLng = geo?.lng ?? null; day.endHotelAddress = geo?.address ?? "";
+          }
+        } else {
+          const sp = day.spots.find((x) => x.id === it.spotId);
+          if (sp) { sp.lat = geo?.lat ?? null; sp.lng = geo?.lng ?? null; sp.resolvedAddress = geo?.address ?? null; }
         }
       });
       it.hasCoords = !!geo;
       if (icon) icon.textContent = geo ? "🟢" : "🔴";
-      const cb = cbFor(it.spotId);
+      const cb = cbFor(it.key);
       if (cb) cb.checked = !geo;
       geo ? ok++ : fail++;
     }
