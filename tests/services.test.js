@@ -6,7 +6,7 @@ import {
   weatherBadgeParts,
   getCachedForecast,
 } from "../js/services/weather.js";
-import { parseNominatim, parsePhoton } from "../js/services/geocode.js";
+import { parseNominatim, parsePhoton, parseNominatimAll, parsePhotonAll } from "../js/services/geocode.js";
 import {
   osrmProfileFor,
   parseOsrmDuration,
@@ -120,6 +120,33 @@ describe("geocode 解析", () => {
     };
     expect(parsePhoton(data)).toEqual({ lat: 35.68, lng: 139.76, address: "Tokyo Tower, Tokyo, Japan" });
     expect(parsePhoton({ features: [] })).toBeNull();
+  });
+
+  it("parseNominatimAll 回多筆並截到 limit、過濾 NaN", () => {
+    const data = [
+      { lat: "35.68", lon: "139.76", display_name: "A" },
+      { lat: "34.69", lon: "135.50", display_name: "B" },
+      { lat: "x", lon: "y", display_name: "壞資料" },
+    ];
+    expect(parseNominatimAll(data)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "A" },
+      { lat: 34.69, lng: 135.5, address: "B" },
+    ]);
+    expect(parseNominatimAll(data, 1)).toHaveLength(1);
+    expect(parseNominatimAll([])).toEqual([]);
+    expect(parseNominatimAll(null)).toEqual([]);
+  });
+
+  it("parsePhotonAll 逐 feature 解析", () => {
+    const data = { features: [
+      { geometry: { coordinates: [139.76, 35.68] }, properties: { name: "Tokyo Tower", city: "Tokyo", country: "Japan" } },
+      { geometry: { coordinates: [135.5, 34.69] }, properties: { name: "Osaka" } },
+    ] };
+    expect(parsePhotonAll(data)).toEqual([
+      { lat: 35.68, lng: 139.76, address: "Tokyo Tower, Tokyo, Japan" },
+      { lat: 34.69, lng: 135.5, address: "Osaka" },
+    ]);
+    expect(parsePhotonAll({ features: [] })).toEqual([]);
   });
 });
 
