@@ -377,12 +377,13 @@ function renderHelpOverlay() {
           <p class="help-item">• <b>＋ 新增一天</b> 增加天數；<b>＋ 新增景點</b> 在當天加入景點，可設定名稱、停留時間、備註與分類。</p>
           <p class="help-item">• 景點之間可設定<b>交通方式</b>與<b>交通時間</b>，時間軸會自動累加計算每站抵達／離開時間。</p>
           <p class="help-item">• 拖曳景點卡片可<b>調整順序</b>；每天可設定<b>出發地</b>與<b>當晚住宿</b>。</p>
+          <p class="help-item">• 景點與飯店卡片點 <b>🔍</b>（已定位顯 <b>📍</b>）開<b>選地點</b>對話框，自動搜尋名稱列出候選、點選即定位；也可手動輸入地址／改字重新搜尋。</p>
           <p class="help-item">• 每段路線可點 <b>⏱</b> 自動估算單段交通時間；每天底部 <b>⏱ 自動填通勤</b> 可批次填入當天所有段。</p>
         </section>
 
         <section class="help-section">
           <h3 class="help-section__title">🔧 批次工具（設定面板）</h3>
-          <p class="help-item">• <b>🔍 查座標</b>：列出所有景點並批次查詢地理座標（🟢 已定位 / 🔴 未定位），供匯出 KML／CSV 定位更精準。</p>
+          <p class="help-item">• <b>🔍 查座標</b>：列出所有<b>景點與飯店端點</b>並批次查詢地理座標（🟢 已定位 / 🔴 未定位），供匯出 KML／CSV 定位更精準；每列可按<b>「選」</b>手動挑選、可批次定位飯店。</p>
           <p class="help-item">• <b>⏱ 填通勤</b>：一鍵估算<b>所有天</b>各段交通時間，可選是否<b>覆蓋已有時間</b>並設定每段<b>緩衝分鐘</b>（供停車／找路預留）。</p>
           <p class="help-note">※ 預設透過免費 OpenStreetMap 服務（Nominatim + OSRM），逐段查詢較慢屬正常，大眾運輸以開車路線近似；於設定填入 Google Maps API Key 後改用 Google（座標更準、大眾運輸查真實班次）。</p>
         </section>
@@ -412,7 +413,7 @@ ${cloudSection}
         </section>
       </div>
       <div class="help-panel__foot">
-        <b>最後更新</b>：Notion 匯出改為完全鏡像 Notion 原生格式——檔名帶 32-hex ID、資料庫產出檢視＋全欄雙 CSV、各列獨立子頁、含快速導覽與待辦的導航頁，可直接匯入 Notion 重建結構（2026-08-03）
+        <b>最後更新</b>：新增手動選地點功能——景點與飯店卡片可點 🔍/📍 開對話框自動搜尋候選或手動輸入地址定位；飯店座標可儲存並納入座標管理與 KML 匯出，通勤估算優先使用既有飯店座標（2026-08-06）
       </div>
     </aside>
   `;
