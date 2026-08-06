@@ -163,7 +163,9 @@ export function buildKml(state) {
 
     // 出發飯店
     if (day.startHotelName && day.startHotelName.trim()) {
-      parts.push(placemark(x(day.startHotelName), styleUrl, null, null, x));
+      const has = day.startHotelLat != null && day.startHotelLng != null;
+      parts.push(placemark(x(day.startHotelName), styleUrl, has ? day.startHotelLng : null, has ? day.startHotelLat : null, x, day.startHotelAddress));
+      if (has) line.push(`${day.startHotelLng},${day.startHotelLat}`);
     }
     day.spots.forEach((spot) => {
       if (!spot.name || !spot.name.trim()) return;
@@ -173,7 +175,9 @@ export function buildKml(state) {
     });
     // 返回飯店
     if (day.endHotelName && day.endHotelName.trim()) {
-      parts.push(placemark(x(day.endHotelName), styleUrl, null, null, x));
+      const has = day.endHotelLat != null && day.endHotelLng != null;
+      parts.push(placemark(x(day.endHotelName), styleUrl, has ? day.endHotelLng : null, has ? day.endHotelLat : null, x, day.endHotelAddress));
+      if (has) line.push(`${day.endHotelLng},${day.endHotelLat}`);
     }
 
     if (line.length >= 2) {
