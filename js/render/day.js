@@ -16,8 +16,20 @@ import {
   getCategory,
   TRANSPORT_MODES,
 } from "../utils.js";
-import { computeTimeline, computeDayStats, formatSlot } from "../timeline.js";
+import { computeTimeline, computeDayStats } from "../timeline.js";
 import { weatherBadgeParts } from "../services/weather.js";
+
+/**
+ * 時間欄內容：單一時刻直接輸出；區間拆成獨立 span，
+ * 讓窄欄（如手機大字體）能以 CSS 改為上下堆疊、隱藏分隔線。
+ */
+function renderTlTime(slot) {
+  if (!slot || !slot.start) return "";
+  const start = escapeHtml(slot.start);
+  if (!slot.end || slot.start === slot.end) return start;
+  const end = escapeHtml(slot.end);
+  return `<span class="tl-range"><span>${start}</span><span class="tl-range__sep">–</span><span>${end}</span></span>`;
+}
 
 export function renderDayPanel(state, day, ctx = {}) {
   const idx = state.days.indexOf(day);
@@ -157,7 +169,7 @@ function renderTimeline(state, day, slots) {
 function renderHotelItem({ slot, tag, dayId, field, value, placeholder, located, address }) {
   return `
     <li class="tl-item">
-      <span class="tl-time">${escapeHtml(formatSlot(slot))}</span>
+      <span class="tl-time">${renderTlTime(slot)}</span>
       <span class="tl-rail"><span class="tl-dot tl-dot--hotel" style="--dot-color:var(--color-success)"></span></span>
       <div class="tl-content">
         <div class="hotel-card">
@@ -201,7 +213,7 @@ function renderRouteItem(state, dayId, rk, slot) {
     : "";
   return `
     <li class="tl-item">
-      <span class="tl-time"><small>${escapeHtml(formatSlot(slot))}</small></span>
+      <span class="tl-time"><small>${renderTlTime(slot)}</small></span>
       <span class="tl-rail"><span class="tl-dot tl-dot--route"></span></span>
       <div class="tl-content">
         <div class="route-card">
@@ -233,7 +245,7 @@ function renderSpotItem(state, day, spot, slot) {
 
   return `
     <li class="tl-item" style="--cat-color:${catColor}">
-      <span class="tl-time">${escapeHtml(formatSlot(slot))}</span>
+      <span class="tl-time">${renderTlTime(slot)}</span>
       <span class="tl-rail"><span class="tl-dot" style="--dot-color:${catColor}"></span></span>
       <div class="tl-content">
         <div class="spot-card" style="--cat-color:${catColor}"

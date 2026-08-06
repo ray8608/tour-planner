@@ -843,6 +843,12 @@ html[data-trips="open"] .trip-menu { transform: translateX(0); }
   /* 交通列：手機上交通工具 + 交通時間過寬會超出畫面，允許換行並縮小間距 */
   .route-card { flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
   .transport-toggle button { padding: 3px 7px; }
+
+  /* 大字體 + 窄時間欄：時間區間（出發–抵達）改上下堆疊、隱藏分隔線，避免左半部擠壓 */
+  html[data-font="large"] .tl-range {
+    display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.12;
+  }
+  html[data-font="large"] .tl-range__sep { display: none; }
 }
 
 /* ============================================================
