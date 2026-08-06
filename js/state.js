@@ -25,7 +25,13 @@ export function makeDay(index) {
     label: `第 ${index} 天`,
     startTime: "",
     startHotelName: "",
+    startHotelLat: null,
+    startHotelLng: null,
+    startHotelAddress: "",
     endHotelName: "",
+    endHotelLat: null,
+    endHotelLng: null,
+    endHotelAddress: "",
     spots: [],
   };
 }
@@ -95,7 +101,13 @@ export function migrateState(raw) {
       label: typeof d.label === "string" ? d.label : `第 ${i + 1} 天`,
       startTime: typeof d.startTime === "string" ? d.startTime : "",
       startHotelName: d.startHotelName || d.hotelName || "",
+      startHotelLat: typeof d.startHotelLat === "number" ? d.startHotelLat : null,
+      startHotelLng: typeof d.startHotelLng === "number" ? d.startHotelLng : null,
+      startHotelAddress: typeof d.startHotelAddress === "string" ? d.startHotelAddress : "",
       endHotelName: d.endHotelName || d.hotelName || "",
+      endHotelLat: typeof d.endHotelLat === "number" ? d.endHotelLat : null,
+      endHotelLng: typeof d.endHotelLng === "number" ? d.endHotelLng : null,
+      endHotelAddress: typeof d.endHotelAddress === "string" ? d.endHotelAddress : "",
       spots: Array.isArray(d.spots)
         ? d.spots.map((sp) => ({
             ...makeSpot(),
