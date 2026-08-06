@@ -103,6 +103,8 @@ function renderTimeline(state, day, slots) {
       field: "startHotelName",
       value: day.startHotelName,
       placeholder: "起點飯店 / 出發地",
+      located: day.startHotelLat != null,
+      address: day.startHotelAddress,
     })
   );
 
@@ -136,6 +138,8 @@ function renderTimeline(state, day, slots) {
         field: "endHotelName",
         value: day.endHotelName,
         placeholder: "終點飯店 / 返回地",
+        located: day.endHotelLat != null,
+        address: day.endHotelAddress,
       })
     );
   }
@@ -150,7 +154,7 @@ function renderTimeline(state, day, slots) {
   `;
 }
 
-function renderHotelItem({ slot, tag, dayId, field, value, placeholder }) {
+function renderHotelItem({ slot, tag, dayId, field, value, placeholder, located, address }) {
   return `
     <li class="tl-item">
       <span class="tl-time">${escapeHtml(formatSlot(slot))}</span>
@@ -161,6 +165,10 @@ function renderHotelItem({ slot, tag, dayId, field, value, placeholder }) {
           <input type="text" data-action="hotel-name" data-day="${escapeAttr(dayId)}"
                  data-field="${escapeAttr(field)}" value="${escapeAttr(value)}"
                  placeholder="${escapeAttr(placeholder)}" aria-label="${escapeAttr(tag)}飯店名稱" />
+          <button class="btn btn--icon btn--ghost ${located ? "is-located" : ""}"
+                  data-action="geocode-hotel" data-day="${escapeAttr(dayId)}" data-field="${escapeAttr(field)}"
+                  title="${located ? "已定位：" + escapeAttr(address || "") : "定位座標 / 選擇地點"}"
+                  aria-label="定位${escapeHtml(tag)}座標">${located ? "📍" : "🔍"}</button>
         </div>
       </div>
     </li>`;
