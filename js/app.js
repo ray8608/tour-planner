@@ -658,12 +658,17 @@ async function scheduleWeatherFetch(state) {
 }
 
 // ---------------- 非同步：地理編碼 / 路線 ----------------
-/** 解析路線端點（飯店以名稱 geocode；景點用既有座標或以名稱 geocode） */
+/** 解析路線端點（飯店優先用既有座標，無才 geocode；景點同理） */
 async function resolveEndpointCoords(day, id) {
-  if (id === hotelStartId(day.id) || id === hotelEndId(day.id)) {
-    const name = ((id === hotelStartId(day.id) ? day.startHotelName : day.endHotelName) || "").trim();
-    if (!name) return null;
-    return geocodePlace(name);
+  if (id === hotelStartId(day.id)) {
+    if (day.startHotelLat != null && day.startHotelLng != null) return { lat: day.startHotelLat, lng: day.startHotelLng };
+    const name = (day.startHotelName || "").trim();
+    return name ? geocodePlace(name) : null;
+  }
+  if (id === hotelEndId(day.id)) {
+    if (day.endHotelLat != null && day.endHotelLng != null) return { lat: day.endHotelLat, lng: day.endHotelLng };
+    const name = (day.endHotelName || "").trim();
+    return name ? geocodePlace(name) : null;
   }
   const spot = day.spots.find((s) => s.id === id);
   if (!spot) return null;

@@ -176,13 +176,18 @@ function collectSegments(days) {
   return segs;
 }
 
-/** 解析節點座標：飯店端點以名稱 geocode；景點優先用既有座標，否則 geocode。以 cache 去重同名查詢 */
+/** 解析節點座標：飯店端點優先用既有座標，無才 geocode；景點同理。以 cache 去重同名查詢 */
 async function resolveNodeCoords(seg, endpoint, cache) {
   const day = getState().days.find((d) => d.id === seg.dayId);
   if (!day) return null;
   const nodeId = endpoint === "from" ? seg.fromId : seg.toId;
   const nodeName = endpoint === "from" ? seg.fromName : seg.toName;
-  if (nodeId === hotelStartId(seg.dayId) || nodeId === hotelEndId(seg.dayId)) {
+  if (nodeId === hotelStartId(seg.dayId)) {
+    if (day.startHotelLat != null && day.startHotelLng != null) return { lat: day.startHotelLat, lng: day.startHotelLng };
+    return nodeName ? cachedGeocode(nodeName, cache) : null;
+  }
+  if (nodeId === hotelEndId(seg.dayId)) {
+    if (day.endHotelLat != null && day.endHotelLng != null) return { lat: day.endHotelLat, lng: day.endHotelLng };
     return nodeName ? cachedGeocode(nodeName, cache) : null;
   }
   const spot = day.spots.find((s) => s.id === nodeId);
