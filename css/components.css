@@ -1110,6 +1110,16 @@ html[data-trips="open"] .trip-menu { transform: translateX(0); }
   white-space: nowrap;
 }
 .tool-row__day { font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
+/* 選地點候選列：地址常很長且國家在尾端，需完整換行顯示，不可截斷 */
+.locate-pick { align-items: flex-start; }
+.locate-pick .tool-icon { line-height: 1.4; }
+.locate-pick .tool-row__name {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
 .tool-empty { padding: var(--sp-4) 0; text-align: center; color: var(--text-muted); }
 .tool-status {
   min-height: 1.2em;
