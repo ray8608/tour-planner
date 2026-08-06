@@ -20,6 +20,7 @@ import { renderApp } from "./render/index.js";
 import { initDrag } from "./drag.js";
 import { initShare, openShare, handleImportParam } from "./share.js";
 import { initTools, openCoordManager, openCommuteFill } from "./tools.js";
+import { initLocate, openLocatePicker } from "./locate.js";
 import { makeDay, makeSpot } from "./state.js";
 import { getDayIsoDate, hotelStartId, hotelEndId, routeKey } from "./utils.js";
 import * as weather from "./services/weather.js";
@@ -725,6 +726,7 @@ function init() {
   initDrag(root);
   initShare();
   initTools();
+  initLocate();
   subscribe(render);
   render();
   handleImportParam(); // ?import=<docId> 分享連結
