@@ -294,6 +294,13 @@
 .transport-toggle button.is-active { background: var(--accent); color: #fff; box-shadow: var(--sh-1); }
 .transport-toggle button:hover:not(.is-active) { color: var(--text); }
 .route-mins { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.route-note {
+  display: block; width: 100%; margin-top: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font-size: var(--fs-sm);
+}
+.route-note:focus { outline: none; border-color: var(--accent); }
 
 /* ---------------- 日統計 chips ---------------- */
 .day-stats { display: flex; flex-wrap: wrap; gap: var(--sp-2); }

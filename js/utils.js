@@ -117,6 +117,7 @@ export const TRANSPORT_MODES = [
   { id: "walking", emoji: "🚶", label: "步行" },
   { id: "transit", emoji: "🚆", label: "大眾運輸" },
   { id: "driving", emoji: "🚗", label: "開車" },
+  { id: "flight", emoji: "✈️", label: "飛機" },
 ];
 
 /** 4 個主題 */

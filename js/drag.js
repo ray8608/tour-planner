@@ -51,16 +51,18 @@ export function initDrag(root) {
   let dragState = null;
 
   root.addEventListener("dragstart", (e) => {
-    const card = e.target.closest(".spot-card");
+    // 僅允許從握把 ⠿ 起拖（與觸控一致）；卡片其餘區域可自由圈選文字而不誤觸拖曳
+    const handle = e.target.closest(".drag-handle");
+    if (!handle) return;
+    const card = handle.closest(".spot-card");
     if (!card) return;
-    // 從輸入元素起拖時取消，保留文字選取/互動；僅允許從卡片非互動區（含握把）起拖
-    if (e.target.closest("input, textarea, select, a")) {
-      e.preventDefault();
-      return;
-    }
     dragState = { spotId: card.dataset.spotId, fromDayId: card.dataset.dayId };
     card.classList.add("dragging");
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      // 握把很小，改用整張卡片作為拖曳影像
+      e.dataTransfer.setDragImage(card, 0, 0);
+    }
   });
 
   root.addEventListener("dragend", () => {

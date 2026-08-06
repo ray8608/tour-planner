@@ -104,7 +104,7 @@ function buildDays(itinGroups, report) {
 
       if (isLeg) {
         const t = notionTransportToEnum(o["移動方式"]);
-        pendingLeg = { transport: t.id || "transit", recordedTime: mins, overflow: t.overflow, details: o.Details };
+        pendingLeg = { transport: t.id || "transit", recordedTime: mins, overflow: t.overflow, details: o.Details, note: o["備註"] || "" };
         legCount++;
       } else {
         const sp = makeSpot(o.Details || "");
@@ -120,7 +120,7 @@ function buildDays(itinGroups, report) {
         // 綁定前一段交通到 prevSpot→此景點
         if (pendingLeg) {
           const rk = routeKey(prevSpotId, sp.id);
-          routes[rk] = { transport: pendingLeg.transport, recordedTime: pendingLeg.recordedTime };
+          routes[rk] = { transport: pendingLeg.transport, recordedTime: pendingLeg.recordedTime, ...(pendingLeg.note ? { note: pendingLeg.note } : {}) };
           if (pendingLeg.overflow) sp.notes = [sp.notes, `交通：${pendingLeg.overflow}`].filter(Boolean).join(" / ");
           pendingLeg = null;
         }
@@ -130,7 +130,7 @@ function buildDays(itinGroups, report) {
     // 收尾未綁定的交通段 → prevSpot→返回飯店
     if (pendingLeg) {
       const rk = routeKey(prevSpotId, hotelEndId(day.id));
-      routes[rk] = { transport: pendingLeg.transport, recordedTime: pendingLeg.recordedTime };
+      routes[rk] = { transport: pendingLeg.transport, recordedTime: pendingLeg.recordedTime, ...(pendingLeg.note ? { note: pendingLeg.note } : {}) };
     }
     day.startTime = firstClock || "";
     days.push(day);

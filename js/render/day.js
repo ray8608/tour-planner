@@ -179,14 +179,26 @@ function renderRouteItem(state, dayId, rk, slot) {
   const rt = route.recordedTime || 0;
   const rh = Math.floor(rt / 60);
   const rm = rt % 60;
+  const isFlight = route.transport === "flight";
   const toggle = TRANSPORT_MODES.map(
     (m) => `<button data-action="route-transport" data-rk="${escapeAttr(rk)}" data-transport="${m.id}"
                     class="${route.transport === m.id ? "is-active" : ""}"
                     title="${m.label}" aria-label="${m.label}">${m.emoji}</button>`
   ).join("");
+  // 飛機無法用 OSRM 估算路線，改提供航班資訊欄、隱藏自動估算按鈕
+  const autoBtn = isFlight
+    ? ""
+    : `<button class="btn btn--icon btn--ghost route-auto" data-action="auto-route"
+                  data-day="${escapeAttr(dayId)}" data-rk="${escapeAttr(rk)}"
+                  title="用 OSRM 估算交通時間" aria-label="自動估算交通時間">⚡</button>`;
+  const flightRow = isFlight
+    ? `<input class="route-note" data-action="route-note" data-rk="${escapeAttr(rk)}"
+                   value="${escapeAttr(route.note || "")}"
+                   placeholder="航班資訊，例：台灣虎航 IT250 桃園→關西" aria-label="航班資訊" />`
+    : "";
   return `
     <li class="tl-item">
-      <span class="tl-time"><small>${slot && slot.end ? escapeHtml(slot.end) : ""}</small></span>
+      <span class="tl-time"><small>${escapeHtml(formatSlot(slot))}</small></span>
       <span class="tl-rail"><span class="tl-dot tl-dot--route"></span></span>
       <div class="tl-content">
         <div class="route-card">
@@ -199,10 +211,9 @@ function renderRouteItem(state, dayId, rk, slot) {
                    data-action="route-time-m" data-rk="${escapeAttr(rk)}"
                    value="${rm || ""}" placeholder="0" aria-label="交通分鐘" /> <span>分</span>
           </span>
-          <button class="btn btn--icon btn--ghost route-auto" data-action="auto-route"
-                  data-day="${escapeAttr(dayId)}" data-rk="${escapeAttr(rk)}"
-                  title="用 OSRM 估算交通時間" aria-label="自動估算交通時間">⚡</button>
+          ${autoBtn}
         </div>
+        ${flightRow}
       </div>
     </li>`;
 }
@@ -223,9 +234,9 @@ function renderSpotItem(state, day, spot, slot) {
       <span class="tl-rail"><span class="tl-dot" style="--dot-color:${catColor}"></span></span>
       <div class="tl-content">
         <div class="spot-card" style="--cat-color:${catColor}"
-             data-spot-id="${escapeAttr(spot.id)}" data-day-id="${escapeAttr(day.id)}" draggable="true">
+             data-spot-id="${escapeAttr(spot.id)}" data-day-id="${escapeAttr(day.id)}">
           <div class="spot-card__head">
-            <span class="drag-handle" title="拖曳排序" aria-hidden="true">⠿</span>
+            <span class="drag-handle" title="拖曳排序" aria-hidden="true" draggable="true">⠿</span>
             <span class="spot-cat" title="分類">${cat ? cat.emoji : "🏷"}</span>
             <input class="spot-name" type="text"
                    data-action="spot-name" data-day="${escapeAttr(day.id)}" data-spot="${escapeAttr(spot.id)}"

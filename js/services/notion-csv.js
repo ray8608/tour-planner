@@ -121,16 +121,15 @@ const TRANSPORT_TO_ENUM = {
   "JR": "transit", "地鐵": "transit", "電車": "transit", "新幹線": "transit",
   "公車": "transit", "巴士": "transit", "觀光船": "transit", "船": "transit", "大眾運輸": "transit",
   "包車接送": "driving", "包車": "driving", "計程車": "driving", "開車": "driving", "自駕": "driving", "租車": "driving",
-  "飛機": "transit",
+  "飛機": "flight", "航班": "flight", "班機": "flight",
 };
-const ENUM_TO_TRANSPORT = { walking: "步行", transit: "大眾運輸", driving: "開車" };
+const ENUM_TO_TRANSPORT = { walking: "步行", transit: "大眾運輸", driving: "開車", flight: "飛機" };
 export function notionTransportToEnum(zh) {
   const parts = String(zh || "").split(",").map((x) => x.trim()).filter(Boolean);
   if (!parts.length) return { id: null, overflow: "" };
   const first = parts[0];
   const id = TRANSPORT_TO_ENUM[first] || null;
-  // 飛機：映射 transit 但原文完整保留（含機型資訊）
-  const overflowParts = first === "飛機" ? parts : parts.slice(1);
+  const overflowParts = parts.slice(1);
   return { id, overflow: overflowParts.filter((p) => p !== undefined).join(", ") };
 }
 export function enumTransportToNotion(id) { return ENUM_TO_TRANSPORT[id] || ""; }

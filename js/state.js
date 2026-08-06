@@ -124,6 +124,7 @@ export function migrateState(raw) {
       out.routes[k] = {
         transport: r.transport || out.settings.defaultTransport,
         recordedTime: typeof r.recordedTime === "number" ? r.recordedTime : 0,
+        ...(typeof r.note === "string" && r.note ? { note: r.note } : {}),
       };
     });
   }

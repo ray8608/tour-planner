@@ -49,6 +49,7 @@ function itineraryRecords(state) {
           "日期": dateCell(iso, rslot.start, rslot.end),
           "移動方式": enumTransportToNotion(route.transport),
           "時間": formatDuration(rt),
+          "備註": route.note || "",
         } });
       }
       const slot = slots[spot.id] || {};

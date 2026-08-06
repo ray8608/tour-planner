@@ -107,11 +107,13 @@ describe("類別／交通對映", () => {
   it("Notion 交通多值 → 取首＋溢出", () => {
     expect(notionTransportToEnum("JR, 步行")).toEqual({ id: "transit", overflow: "步行" });
     expect(notionTransportToEnum("步行")).toEqual({ id: "walking", overflow: "" });
-    expect(notionTransportToEnum("飛機")).toEqual({ id: "transit", overflow: "飛機" });
+    expect(notionTransportToEnum("飛機")).toEqual({ id: "flight", overflow: "" });
+    expect(notionTransportToEnum("飛機, 台灣虎航 IT250")).toEqual({ id: "flight", overflow: "台灣虎航 IT250" });
     expect(notionTransportToEnum("包車接送")).toEqual({ id: "driving", overflow: "" });
   });
   it("enum → Notion 交通", () => {
     expect(enumTransportToNotion("transit")).toBe("大眾運輸");
     expect(enumTransportToNotion("walking")).toBe("步行");
+    expect(enumTransportToNotion("flight")).toBe("飛機");
   });
 });

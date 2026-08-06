@@ -44,6 +44,7 @@ const TEXT_ACTIONS = new Set([
   "spot-name",
   "hotel-name",
   "spot-notes",
+  "route-note",
 ]);
 
 /** change 事件觸發重繪（會影響時間軸/版面） */
@@ -435,7 +436,7 @@ function onClick(e) {
 function onInput(e) {
   const el = e.target.closest("[data-action]");
   if (!el) return;
-  const { action, day: dayId, spot: spotId, field, index } = el.dataset;
+  const { action, day: dayId, spot: spotId, field, index, rk } = el.dataset;
 
   // 行程改名：即時存值（不重繪、不記歷史；undo 僅作用於作用中行程）
   if (action === "rename-trip") {
@@ -485,6 +486,11 @@ function onInput(e) {
       case "spot-notes": {
         const s = findSpot(d, dayId, spotId);
         if (s) s.notes = val;
+        break;
+      }
+      case "route-note": {
+        const r = ensureRoute(d, rk);
+        r.note = val;
         break;
       }
       default:

@@ -63,4 +63,15 @@ describe("state 模型擴充", () => {
     expect(m.days[0].spots[0].name).toBe("A");
     expect(m.routes["hs_d1→s1"].recordedTime).toBe(10);
   });
+
+  it("migrateState 保留飛機交通方式與航班資訊 note", () => {
+    const old = {
+      version: 4,
+      days: [{ id: "d1", label: "第 1 天", spots: [{ id: "s1", name: "A" }] }],
+      routes: { "hs_d1→s1": { transport: "flight", recordedTime: 90, note: "台灣虎航 IT250 桃園→關西" } },
+    };
+    const m = migrateState(old);
+    expect(m.routes["hs_d1→s1"].transport).toBe("flight");
+    expect(m.routes["hs_d1→s1"].note).toBe("台灣虎航 IT250 桃園→關西");
+  });
 });

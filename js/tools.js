@@ -245,7 +245,7 @@ export function openCommuteFill(scope) {
   const days = scope === "all" ? state.days : state.days.filter((d) => d.id === scope);
   const scopeLabel = scope === "all" ? "（所有天）" : "（本天）";
   const segments = collectSegments(days);
-  const fillable = segments.filter((s) => s.fromName && s.toName);
+  const fillable = segments.filter((s) => s.fromName && s.toName && s.transport !== "flight");
 
   openWith(`
     <div class="tool-dialog" role="dialog" aria-modal="true" aria-label="自動填通勤時間">
